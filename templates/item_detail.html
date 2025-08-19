@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <div class="card-header">
+    <h2>{{ item.title }}</h2>
+    <div class="actions">
+      <a class="btn ghost" href="/items/{{ item.id }}/edit">Edit</a>
+    </div>
+  </div>
+  <div class="card-body item-grid">
+    <div class="media">
+      {% if item.photo_path %}<img src="/{{ item.photo_path }}" alt="" />{% else %}
+      <div class="placeholder">No photo</div>
+      {% endif %}
+    </div>
+    <div class="meta">
+      <dl class="dl">
+        <div><dt>Barcode</dt><dd class="mono">{{ item.barcode or '—' }}</dd></div>
+        <div><dt>Category</dt><dd>{{ item.category.name if item.category else '—' }}</dd></div>
+        <div><dt>Brand</dt><dd>{{ item.brand or '—' }}</dd></div>
+        <div><dt>Size</dt><dd>{{ item.size or '—' }}</dd></div>
+        <div><dt>Color</dt><dd>{{ item.color or '—' }}</dd></div>
+        <div><dt>Condition</dt><dd>{{ item.condition or '—' }}</dd></div>
+        <div><dt>Purchase Source</dt><dd>{{ item.purchase_source or '—' }}</dd></div>
+        <div><dt>Cost</dt><dd class="mono">${{ '%.2f'|format(item.purchase_price or 0) }}</dd></div>
+        <div><dt>Break-even (0%)</dt><dd class="mono">${{ '%.2f'|format(item.break_even_price()) }}</dd></div>
+        <div><dt>List Price</dt><dd class="mono">${{ '%.2f'|format(item.list_price or 0) }}</dd></div>
+        {% if item.sold_price %}
+          <div><dt>Sold Price</dt><dd class="mono">${{ '%.2f'|format(item.sold_price) }} <span class="muted small">on {{ item.sold_date }}</span></dd></div>
+          <div><dt>Profit after fees</dt><dd class="mono">${{ '%.2f'|format(item.profit()) }}</dd></div>
+        {% else %}
+          <div><dt>Status</dt><dd><span class="badge">Not sold yet</span></dd></div>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+</section>
+{% endblock %}

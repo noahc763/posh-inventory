@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <div class="card-header">
+    <h2>Manage Categories</h2>
+    <div class="actions">
+      <span class="muted small">
+        Total: {{ categories|length }}
+      </span>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <form method="post" class="grid-form" action="{{ url_for('categories.manage_categories') }}">
+      <label class="field grow">
+        <span>New category name</span>
+        <input name="name" placeholder="e.g., Dresses" required />
+      </label>
+      <button class="btn">Add</button>
+    </form>
+
+    {% if categories %}
+      <div class="table-wrap" style="margin-top:12px;">
+        <table class="table table-zebra">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Items</th>
+              <th style="width: 140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in categories %}
+            <tr>
+              <td>{{ c.name }}</td>
+              <td class="mono">{{ c.items|length }}</td>
+              <td>
+                <form method="post"
+                      action="{{ url_for('categories.delete_category', cat_id=c.id) }}"
+                      onsubmit="return confirm('Delete category &quot;{{ c.name }}&quot;? Items will be uncategorized.');">
+                  <button class="btn danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="toast-stack" style="margin-top:12px;">
+        <div class="toast">
+          No categories yet. Add your first one above to start organizing items.
+        </div>
+      </div>
+    {% endif %}
+
+    <p style="margin-top:12px;"><a class="link" href="{{ url_for('dashboard') }}">← Back to dashboard</a></p>
+  </div>
+</section>
+{% endblock %}

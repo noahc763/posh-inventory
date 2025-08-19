@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card narrow">
+  <div class="card-header"><h2>Login</h2></div>
+  <div class="card-body">
+    <form method="post" class="form-vertical">
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" required />
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" required />
+      </label>
+      <button class="btn w-100">Login</button>
+    </form>
+    <p class="muted" style="margin-top:10px;">New? <a class="link" href="/register">Create an account</a></p>
+  </div>
+</section>
+{% endblock %}

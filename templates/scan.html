@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <div class="card-header">
+    <h2>Scan a Barcode</h2>
+  </div>
+  <div class="card-body">
+    <form method="post" class="toolbar">
+      <input class="input" name="barcode" id="barcode" placeholder="Click here and scan / type and press Enter" autofocus />
+      <button class="btn">Go</button>
+    </form>
+    <hr class="divider"/>
+    <p><b>Or use your camera:</b></p>
+    <div id="interactive" class="viewport"></div>
+    <pre id="result" class="mono"></pre>
+    <script src="https://unpkg.com/quagga2@2.0.0/dist/quagga.js"></script>
+    <script src="/static/js/scan.js"></script>
+  </div>
+</section>
+{% endblock %}
