@@ -1,6 +1,6 @@
-gunicorn
-psycopg[binary]
 flask
+gunicorn
+Flask-SQLAlchemy
 flask-login
+psycopg[binary]
 python-dotenv
-flask_sqlalchemy

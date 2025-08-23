@@ -12,13 +12,16 @@
     p.muted { color: #777; margin: 0 0 12px; font-size: 0.95rem; }
     video { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16/9; }
     .row { display:flex; gap:8px; margin:12px 0; flex-wrap: wrap; align-items: center; }
-    button, .btn, input[type=file] { padding:10px 14px; border-radius:10px; border:1px solid #ccc; background:#f8f8f8; cursor:pointer; }
+    button, .btn, input[type=file], select { padding:10px 14px; border-radius:10px; border:1px solid #ccc; background:#f8f8f8; cursor:pointer; }
+    select { cursor: default; }
     #status { margin-top: 4px; color: #555; min-height: 1.2em; }
     #result { margin-top: 10px; font-weight: 600; word-break: break-all; }
     .hidden { display: none; }
     label.upload { display:inline-block; }
     label.upload span { display:inline-block; padding:10px 14px; border:1px solid #ccc; border-radius:10px; background:#f8f8f8; cursor:pointer; }
     canvas { display:none; }
+    .field { display:flex; gap:8px; align-items:center; }
+    .field span { font-size:0.95rem; color:#555; }
   </style>
 </head>
 <body>
@@ -28,6 +31,20 @@
     Tip: Allow camera access when prompted. On iPhone, the page must be opened over HTTPS and scanning starts after you tap a button.
   </p>
 
+  <!-- Category picker -->
+  <div class="row">
+    <div class="field">
+      <span>Category</span>
+      <select id="categorySelect" required>
+        <option value="" disabled selected>Select a category</option>
+        {% for c in categories %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- Camera preview -->
   <video id="preview" playsinline muted></video>
 
   <div class="row">
@@ -52,29 +69,26 @@
 <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <script>
-  // ---------- Elements ----------
   const video = document.getElementById('preview');
   const startBtn = document.getElementById('startBtn');
   const stopBtn  = document.getElementById('stopBtn');
   const statusEl = document.getElementById('status');
   const resultEl = document.getElementById('result');
   const photoInput = document.getElementById('photoInput');
+  const categorySelect = document.getElementById('categorySelect');
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
-  // ---------- Utilities ----------
   function setStatus(msg) { statusEl.textContent = msg; }
   function setResult(text) { resultEl.textContent = text ? `Scanned: ${text}` : ''; }
+  function normalizeBarcode(raw) { return String(raw || '').trim(); }
 
-  // Normalize barcode client-side (optional—server should normalize too)
-  function normalizeBarcode(raw) {
-    return String(raw || '').trim();
-  }
-
-  // ---------- Redirect helper (calls your Flask API then routes) ----------
+  // Redirect after barcode scan
   async function onBarcode(rawCode) {
     const barcode = normalizeBarcode(rawCode);
+    const cat = categorySelect?.value;
     if (!barcode) return;
+    if (!cat) { alert("Pick a category first."); return; }
 
     try {
       const r = await fetch(`/api/items/lookup?barcode=${encodeURIComponent(barcode)}`, {
@@ -83,19 +97,16 @@
       const data = await r.json();
 
       if (data.found) {
-        // Item exists → go to detail page
         window.location.assign(`/items/${data.id}`);
       } else {
-        // Not found → go to create form with barcode prefilled
-        window.location.assign(`/items/new?barcode=${encodeURIComponent(barcode)}`);
+        window.location.assign(`/categories/${cat}/items/new?barcode=${encodeURIComponent(barcode)}`);
       }
     } catch (e) {
-      // Network/API hiccup: still guide the user to create flow
-      window.location.assign(`/items/new?barcode=${encodeURIComponent(barcode)}`);
+      window.location.assign(`/categories/${cat}/items/new?barcode=${encodeURIComponent(barcode)}`);
     }
   }
 
-  // ---------- Camera / ZXing ----------
+  // ZXing scanning loop
   let codeReader = null;
 
   async function startCamera() {
@@ -107,7 +118,6 @@
       return;
     }
 
-    // Initialize ZXing reader once
     if (!codeReader) {
       codeReader = new ZXing.BrowserMultiFormatReader();
     } else {
@@ -115,14 +125,9 @@
     }
 
     try {
-      // Prefer rear camera; fall back gracefully
       const constraints = {
         audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -133,7 +138,6 @@
       startBtn.disabled = true;
       stopBtn.disabled = false;
 
-      // The ZX "loop": we decode continuously by calling ourselves via rAF
       const decodeLoop = async () => {
         try {
           const result = await codeReader.decodeOnceFromVideoDevice(undefined, video);
@@ -141,30 +145,28 @@
             const code = result.text;
             setResult(code);
             setStatus('Found a code. Redirecting…');
-            stopCamera();          // stop preview / tracks
-            onBarcode(code);       // 🔗 redirect based on your API
-            return;                // exit loop after success
+            stopCamera();
+            onBarcode(code);
+            return;
           }
         } catch (err) {
-          // NotFoundException fires repeatedly when no code in frame—ignore
           if (!String(err).includes('NotFoundException')) {
             console.warn(err);
             setStatus('Scanning error: ' + (err?.message || err));
           }
         }
-        // Keep going while stream is active
         if (video.srcObject) requestAnimationFrame(decodeLoop);
       };
-
       requestAnimationFrame(decodeLoop);
+
     } catch (err) {
       console.warn(err);
       if (err.name === 'NotAllowedError') {
-        setStatus('Camera permission denied. Use the photo upload fallback or enable camera in browser settings.');
+        setStatus('Camera permission denied.');
       } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-        setStatus('No suitable camera found. Use the photo upload fallback.');
+        setStatus('No suitable camera found.');
       } else if (!window.isSecureContext) {
-        setStatus('Camera requires HTTPS. Open this page with https://');
+        setStatus('Camera requires HTTPS.');
       } else {
         setStatus('Unable to access camera: ' + (err?.message || err));
       }
@@ -181,7 +183,7 @@
     }
   }
 
-  // ---------- Fallback: decode from uploaded photo (QR and some barcodes if high-contrast) ----------
+  // Fallback: decode from uploaded photo
   photoInput.addEventListener('change', async (e) => {
     if (!e.target.files || !e.target.files[0]) return;
     const file = e.target.files[0];
@@ -191,8 +193,6 @@
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0, img.width, img.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      // Try QR first (jsQR)
       const qr = jsQR(imageData.data, canvas.width, canvas.height);
       if (qr && qr.data) {
         const code = qr.data;
@@ -201,19 +201,15 @@
         onBarcode(code);
         return;
       }
-
-      // If you want to support 1D barcodes from image uploads, consider a library like Quagga2.
-      setStatus('Could not detect a QR code in that photo. Try better lighting or a closer shot.');
+      setStatus('Could not detect a QR code in that photo.');
     };
     img.onerror = () => setStatus('Could not read image.');
     img.src = URL.createObjectURL(file);
   });
 
-  // ---------- Wire up buttons ----------
   startBtn.addEventListener('click', startCamera);
   stopBtn.addEventListener('click', stopCamera);
 
-  // iOS quirks: ensure inline playback to avoid fullscreen
   video.setAttribute('playsinline', '');
   video.setAttribute('muted', '');
 </script>
