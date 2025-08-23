@@ -1,7 +1,7 @@
 # app.py
 import os
 from decimal import Decimal
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, make_response
 from flask_login import LoginManager, login_required, current_user
 
 from config import Config
@@ -66,6 +66,18 @@ def create_app():
     def healthz():
         return {"ok": True}
 
+    @app.after_request
+    def add_headers(resp):
+        # Allow camera on same-origin pages
+        resp.headers["Permissions-Policy"] = "camera=(self)"
+        # Optional CSP to be safer; adjust if you use additional CDNs
+        resp.headers["Content-Security-Policy"] = "default-src 'self' https: 'unsafe-inline' 'unsafe-eval' blob: data:;"
+        return resp
+
+    @app.route("/scan")
+    def scan():
+        resp = make_response(render_template("scan.html"))
+        return resp
     return app
 
 

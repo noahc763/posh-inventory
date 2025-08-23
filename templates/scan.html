@@ -1,20 +1,172 @@
-{% extends 'base.html' %}
-{% block content %}
-<section class="card">
-  <div class="card-header">
-    <h2>Scan a Barcode</h2>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scan Barcode</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 16px; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    video { width: 100%; border-radius: 12px; background: #000; }
+    canvas { display: none; }
+    .row { display:flex; gap:8px; margin:12px 0; flex-wrap: wrap; }
+    button, input[type=file] { padding:10px 14px; border-radius:10px; border:1px solid #ccc; background:#f8f8f8; cursor:pointer; }
+    #status { margin-top: 8px; color: #555; }
+    #result { margin-top: 12px; font-weight: 600; }
+    .muted { color:#777; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Scan a Barcode</h1>
+  <p class="muted">Tip: Make sure you’ve allowed camera access. On iPhone, the page must be opened over HTTPS and scanning starts after you tap a button.</p>
+
+  <video id="preview" playsinline muted></video>
+
+  <div class="row">
+    <button id="startBtn">Start Camera</button>
+    <button id="stopBtn" disabled>Stop</button>
+
+    <!-- Fallback: upload a photo if live camera isn't available -->
+    <label>
+      <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none;">
+      <span style="padding:10px 14px; border:1px solid #ccc; border-radius:10px; background:#f8f8f8; cursor:pointer;">Or Upload a Photo</span>
+    </label>
   </div>
-  <div class="card-body">
-    <form method="post" class="toolbar">
-      <input class="input" name="barcode" id="barcode" placeholder="Click here and scan / type and press Enter" autofocus />
-      <button class="btn">Go</button>
-    </form>
-    <hr class="divider"/>
-    <p><b>Or use your camera:</b></p>
-    <div id="interactive" class="viewport"></div>
-    <pre id="result" class="mono"></pre>
-    <script src="https://unpkg.com/quagga2@2.0.0/dist/quagga.js"></script>
-    <script src="/static/js/scan.js"></script>
-  </div>
-</section>
-{% endblock %}
+
+  <div id="status">Idle</div>
+  <div id="result"></div>
+  <canvas id="canvas"></canvas>
+</div>
+
+<!-- ZXing library via CDN -->
+<script src="https://unpkg.com/@zxing/library@0.20.0"></script>
+<!-- jsQR for fallback image decode -->
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<script>
+  const video = document.getElementById('preview');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn  = document.getElementById('stopBtn');
+  const statusEl = document.getElementById('status');
+  const resultEl = document.getElementById('result');
+  const photoInput = document.getElementById('photoInput');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  let codeReader = null;
+  let controls = null;
+
+  function setStatus(msg) { statusEl.textContent = msg; }
+  function setResult(text) { resultEl.textContent = text ? `Scanned: ${text}` : ''; }
+
+  async function startCamera() {
+    setResult('');
+    setStatus('Requesting camera… (tap Allow)');
+
+    // Initialize ZXing
+    if (!codeReader) {
+      codeReader = new ZXing.BrowserMultiFormatReader();
+    } else {
+      codeReader.reset();
+    }
+
+    try {
+      // Prefer rear camera; fall back if not available
+      const constraints = {
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      // On iOS, must be triggered by a user click (we are in a click handler)
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
+      await video.play();
+
+      // Start decoding continuously
+      setStatus('Scanning… point the camera at a barcode.');
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+
+      const decodeLoop = async () => {
+        try {
+          const result = await codeReader.decodeOnceFromVideoDevice(undefined, video);
+          if (result && result.text) {
+            setResult(result.text);
+            setStatus('Found a code. Scanning paused.');
+            stopCamera(); // stop after first read; or remove this line to keep scanning
+          }
+        } catch (err) {
+          // decodeOnce throws repeatedly as it loops; only show actionable errors
+          if (String(err).includes('NotFoundException')) {
+            // No code in the current frame; keep going softly
+          } else {
+            console.warn(err);
+            setStatus('Scanning error: ' + err.message);
+          }
+          if (!video.srcObject) return; // stopped
+        }
+        // keep looping
+        if (video.srcObject) requestAnimationFrame(decodeLoop);
+      };
+
+      requestAnimationFrame(decodeLoop);
+    } catch (err) {
+      console.warn(err);
+      if (err.name === 'NotAllowedError') {
+        setStatus('Camera permission denied. Use the photo upload fallback or enable camera permission in your browser settings.');
+      } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+        setStatus('No suitable camera found. Try the photo upload fallback.');
+      } else if (!window.isSecureContext) {
+        setStatus('Camera requires HTTPS. Open this page over https://');
+      } else {
+        setStatus('Unable to access camera: ' + err.message);
+      }
+    }
+  }
+
+  function stopCamera() {
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    if (codeReader) codeReader.reset();
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    }
+  }
+
+  // Fallback: decode from uploaded image using jsQR
+  photoInput.addEventListener('change', async (e) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0, img.width, img.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const qr = jsQR(imageData.data, canvas.width, canvas.height);
+      if (qr && qr.data) {
+        setResult(qr.data);
+        setStatus('Decoded from photo.');
+      } else {
+        setStatus('Could not find a code in that photo. Try again with better lighting.');
+      }
+    };
+    img.onerror = () => setStatus('Could not read image.');
+    img.src = URL.createObjectURL(file);
+  });
+
+  startBtn.addEventListener('click', startCamera);
+  stopBtn.addEventListener('click', stopCamera);
+
+  // iOS quirk: ensure playsinline or it may force fullscreen and break decode
+  video.setAttribute('playsinline', '');
+  video.setAttribute('muted', '');
+</script>
+</body>
+</html>
