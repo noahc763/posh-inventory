@@ -1,38 +1,93 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<section class="card">
-  <div class="card-header">
-    <h2>{{ item.title }}</h2>
-    <div class="actions">
-      <a class="btn ghost" href="/items/{{ item.id }}/edit">Edit</a>
+<section class="card" style="max-width: 900px; margin: 0 auto;">
+  <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="margin:0;">{{ item.title }}</h2>
+    <div style="display:flex; gap:8px;">
+      <a class="btn" href="{{ url_for('dashboard') }}">Back</a>
+      <a class="btn" href="{{ url_for('scan') }}">Scan Another</a>
     </div>
   </div>
-  <div class="card-body item-grid">
-    <div class="media">
-      {% if item.photo_path %}<img src="/{{ item.photo_path }}" alt="" />{% else %}
-      <div class="placeholder">No photo</div>
-      {% endif %}
+
+  {% macro money(v) -%}
+    {%- if v is not none -%}
+      ${{ '{:,.2f}'.format(v) }}
+    {%- else -%}
+      —
+    {%- endif -%}
+  {%- endmacro %}
+
+  {% set payout_val = (item.sold_price * Decimal('0.80')) if item.sold_price else None %}
+  {% set profit_val = (item.sold_price * Decimal('0.80') - (item.purchase_price or 0)) if item.sold_price else None %}
+
+  <div class="card-body" style="display:grid; gap:16px;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+      <div>
+        <div class="muted">Barcode</div>
+        <div style="font-weight:600;">{{ item.barcode or '—' }}</div>
+      </div>
+      <div>
+        <div class="muted">Category</div>
+        <div style="font-weight:600;">{{ item.category.name if item.category else '—' }}</div>
+      </div>
     </div>
-    <div class="meta">
-      <dl class="dl">
-        <div><dt>Barcode</dt><dd class="mono">{{ item.barcode or '—' }}</dd></div>
-        <div><dt>Category</dt><dd>{{ item.category.name if item.category else '—' }}</dd></div>
-        <div><dt>Brand</dt><dd>{{ item.brand or '—' }}</dd></div>
-        <div><dt>Size</dt><dd>{{ item.size or '—' }}</dd></div>
-        <div><dt>Color</dt><dd>{{ item.color or '—' }}</dd></div>
-        <div><dt>Condition</dt><dd>{{ item.condition or '—' }}</dd></div>
-        <div><dt>Purchase Source</dt><dd>{{ item.purchase_source or '—' }}</dd></div>
-        <div><dt>Cost</dt><dd class="mono">${{ '%.2f'|format(item.purchase_price or 0) }}</dd></div>
-        <div><dt>Break-even (0%)</dt><dd class="mono">${{ '%.2f'|format(item.break_even_price()) }}</dd></div>
-        <div><dt>List Price</dt><dd class="mono">${{ '%.2f'|format(item.list_price or 0) }}</dd></div>
-        {% if item.sold_price %}
-          <div><dt>Sold Price</dt><dd class="mono">${{ '%.2f'|format(item.sold_price) }} <span class="muted small">on {{ item.sold_date }}</span></dd></div>
-          <div><dt>Profit after fees</dt><dd class="mono">${{ '%.2f'|format(item.profit()) }}</dd></div>
-        {% else %}
-          <div><dt>Status</dt><dd><span class="badge">Not sold yet</span></dd></div>
-        {% endif %}
-      </dl>
+
+    <hr>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+      <div>
+        <div class="muted">Purchase Price</div>
+        <div style="font-weight:600;">{{ money(item.purchase_price) }}</div>
+      </div>
+      <div>
+        <div class="muted">Purchase Date</div>
+        <div style="font-weight:600;" id="purchaseDateText">
+          {{ item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else '—' }}
+        </div>
+      </div>
+      <div>
+        <div class="muted">Return Date (30 days)</div>
+        <div style="font-weight:600;" id="returnDateText" data-purchase="{{ item.purchase_date.isoformat() if item.purchase_date else '' }}">—</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+      <div>
+        <div class="muted">List Price</div>
+        <div style="font-weight:600;">{{ money(item.list_price) }}</div>
+      </div>
+      <div>
+        <div class="muted">Sold Price</div>
+        <div style="font-weight:600;">{{ money(item.sold_price) }}</div>
+      </div>
+      <div>
+        <div class="muted">Payout (after 20% fee)</div>
+        <div style="font-weight:600;">{{ money(payout_val) }}</div>
+      </div>
+      <div>
+        <div class="muted">Profit (after 20% fee)</div>
+        <div style="font-weight:600;">{{ money(profit_val) }}</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="muted">Notes</div>
+      <div style="white-space:pre-wrap;">{{ item.notes or '—' }}</div>
     </div>
   </div>
 </section>
+
+<script>
+  // Show Return Date = Purchase Date + 30 days
+  (function() {
+    const el = document.getElementById('returnDateText');
+    if (!el) return;
+    const iso = el.getAttribute('data-purchase');
+    if (!iso) return;
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d)) return;
+    d.setDate(d.getDate() + 30);
+    el.textContent = d.toISOString().slice(0,10);
+  })();
+</script>
 {% endblock %}

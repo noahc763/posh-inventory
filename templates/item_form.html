@@ -2,10 +2,10 @@
 {% block content %}
 <section class="card" style="max-width: 760px; margin: 0 auto;">
   <div class="card-header">
-    <h2>New Item</h2>
+    <h2>New Item in {{ category.name }}</h2>
   </div>
   <div class="card-body">
-    <form action="{{ url_for('items_new', category_id=category.id) }}" method="post" enctype="application/x-www-form-urlencoded" class="grid-form" style="display:grid; gap:12px;">
+    <form action="{{ url_for('items_new', category_id=category.id) }}" method="post" class="grid-form" style="display:grid; gap:12px;">
       <label class="field">
         <span>Title *</span>
         <input name="name" placeholder="e.g., Nike Air Max 270" required />
@@ -16,52 +16,95 @@
         <input name="barcode" value="{{ prefill.barcode if prefill and prefill.barcode }}" placeholder="Scan or type" />
       </label>
 
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
         <label class="field">
-          <span>Brand</span>
-          <input name="brand" />
+          <span>Purchase Source</span>
+          <input name="purchase_source" />
         </label>
+
         <label class="field">
-          <span>Size</span>
-          <input name="size" />
+          <span>Purchase Price</span>
+          <input id="purchase_price" name="purchase_price" type="number" step="0.01" min="0" value="0.00" />
         </label>
+
         <label class="field">
-          <span>Color</span>
-          <input name="color" />
+          <span>Purchase Date</span>
+          <input id="purchase_date" name="purchase_date" type="date" />
+        </label>
+
+        <label class="field">
+          <span>Return Date (30 days)</span>
+          <input id="return_date" type="date" readonly />
         </label>
       </div>
 
-      <label class="field">
-        <span>Condition</span>
-        <input name="condition" placeholder="e.g., New with tags" />
-      </label>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <label class="field">
+          <span>List Price</span>
+          <input name="list_price" type="number" step="0.01" min="0" />
+        </label>
+
+        <label class="field">
+          <span>Sold Price</span>
+          <input id="sold_price" name="sold_price" type="number" step="0.01" min="0" />
+        </label>
+
+        <div class="field" style="display:flex; flex-direction:column; justify-content:flex-end">
+          <div class="muted" style="color:#666;">Profit after 20% fee</div>
+          <div id="profit_display" style="font-weight:600;">—</div>
+        </div>
+      </div>
 
       <label class="field">
         <span>Notes</span>
         <textarea name="notes" rows="3" placeholder="Any details to remember"></textarea>
       </label>
 
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
-        <label class="field">
-          <span>Purchase Source</span>
-          <input name="purchase_source" />
-        </label>
-        <label class="field">
-          <span>Purchase Price</span>
-          <input name="purchase_price" type="number" step="0.01" min="0" value="0.00" />
-        </label>
-        <label class="field">
-          <span>List Price</span>
-          <input name="list_price" type="number" step="0.01" min="0" />
-        </label>
-      </div>
-
       <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
         <button class="btn" type="submit">Save Item</button>
         <a class="btn" href="{{ url_for('dashboard') }}" style="text-decoration:none; display:inline-block; padding:8px 12px;">Cancel</a>
       </div>
     </form>
-    
   </div>
 </section>
+
+<script>
+  const purchaseDate = document.getElementById('purchase_date');
+  const returnDate   = document.getElementById('return_date');
+  const purchaseEl   = document.getElementById('purchase_price');
+  const soldEl       = document.getElementById('sold_price');
+  const profitEl     = document.getElementById('profit_display');
+
+  function toISODate(d) { return d.toISOString().slice(0,10); }
+
+  function updateReturnDate() {
+    if (!purchaseDate.value) { returnDate.value = ''; return; }
+    const d = new Date(purchaseDate.value + 'T00:00:00');
+    if (isNaN(d)) { returnDate.value = ''; return; }
+    d.setDate(d.getDate() + 30);
+    returnDate.value = toISODate(d);
+  }
+
+  function dollars(n) {
+    if (n === null || isNaN(n)) return '—';
+    return '$' + n.toFixed(2);
+  }
+
+  function calcProfit() {
+    const purchase = parseFloat(purchaseEl.value || '0');
+    const sold     = parseFloat(soldEl.value || '0');
+    if (isNaN(sold)) { profitEl.textContent = '—'; return; }
+    const payout = sold * 0.80;                // 20% Poshmark fee
+    const profit = payout - (isNaN(purchase) ? 0 : purchase);
+    profitEl.textContent = dollars(profit);
+  }
+
+  purchaseDate.addEventListener('change', updateReturnDate);
+  purchaseEl.addEventListener('input',  calcProfit);
+  soldEl.addEventListener('input',      calcProfit);
+
+  // initialize on load
+  updateReturnDate();
+  calcProfit();
+</script>
 {% endblock %}
