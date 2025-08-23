@@ -8,6 +8,7 @@ from models import db, Item, Category, User
 from auth import auth_bp
 from items import items_bp
 from categories import categories_bp
+from datetime import datetime
 
 
 def create_app():
@@ -92,24 +93,54 @@ def create_app():
     def items_create():
         name = (request.form.get("name") or "").strip()
         barcode = normalize_barcode(request.form.get("barcode") or "")
+        purchase_price = request.form.get("purchase_price")
+        sold_price = request.form.get("sold_price")
+        purchase_date = request.form.get("purchase_date")
+        purchase_source = (request.form.get("purchase_source") or "").strip()
+        list_price = request.form.get("list_price")
+        notes = request.form.get("notes")
+
         if not barcode:
             return ("Barcode required", 400)
+
+        # helpers
+        def parse_money(v):
+            try:
+                return Decimal(v)
+            except Exception:
+                return None
+
+        def parse_date(v):
+            try:
+                return datetime.strptime(v, "%Y-%m-%d").date() if v else None
+            except Exception:
+                return None
 
         existing = Item.query.filter_by(user_id=current_user.id, barcode=barcode).first()
         if existing:
             return redirect(url_for("item_detail", item_id=existing.id))
 
-        # Create and save
-        item = Item(name=name, barcode=barcode, user_id=current_user.id)
+        item = Item(
+            user_id=current_user.id,
+            title=name or "Untitled",
+            barcode=barcode,
+            purchase_source=purchase_source or None,
+            purchase_price=parse_money(purchase_price) or Decimal("0.00"),
+            list_price=parse_money(list_price),
+            sold_price=parse_money(sold_price),
+            purchase_date=parse_date(purchase_date),
+            notes=notes or None,
+        )
+
         db.session.add(item)
         try:
             db.session.commit()
         except Exception:
             db.session.rollback()
-            # likely unique constraint on (user_id, barcode)
             return ("Barcode already exists", 409)
 
         return redirect(url_for("item_detail", item_id=item.id))
+
 
     # (optional) quick health check
     @app.route("/healthz")
