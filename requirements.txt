@@ -4,3 +4,5 @@ Flask-SQLAlchemy
 flask-login
 psycopg[binary]
 python-dotenv
+Flask-Migrate
+alembic
