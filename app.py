@@ -23,7 +23,8 @@ def create_app():
     # --- DB init ---
     db.init_app(app)
     with app.app_context():
-        if os.environ.get("RUN_DB-CREATE_ALL") == "1":
+        # Fixed env var name + os.environ
+        if os.environ.get("RUN_DB_CREATE_ALL") == "1":
             db.create_all()
 
     # --- Auth ---
@@ -102,6 +103,23 @@ def create_app():
             return jsonify({"found": True, "id": item.id}), 200
         return jsonify({"found": False}), 200
 
+    # === Manual Add support (no new templates needed) ===
+    # 1) Legacy '/items/add' -> redirect to scanner (avoids 404s from bots/old links)
+    @app.route("/items/add")
+    def legacy_items_add():
+        return redirect(url_for("scan"), code=301)
+
+    # 2) Handy shortcut: '/items/new?category_id=<id>&barcode=<optional>'
+    #    Redirects to the canonical category-aware route used by both manual and scan flows.
+    @app.route("/items/new")
+    @login_required
+    def items_new_shortcut():
+        category_id = request.args.get("category_id", type=int)
+        barcode = request.args.get("barcode", "")
+        if not category_id:
+            # If no category provided, send to the scan page where user can pick one
+            return redirect(url_for("scan"))
+        return redirect(url_for("items_new", category_id=category_id, barcode=barcode))
 
     # ONE canonical "new item" path that includes category
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
@@ -111,7 +129,7 @@ def create_app():
         category = Category.query.filter_by(id=category_id, user_id=current_user.id).first_or_404()
 
         if request.method == "GET":
-            # prefill barcode from ?barcode=... (scanner flow)
+            # prefill barcode from ?barcode=... (scanner or manual shortcut)
             barcode = request.args.get("barcode", "")
             return render_template("item_form.html", prefill={"barcode": barcode}, category=category)
 
