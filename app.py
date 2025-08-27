@@ -23,7 +23,8 @@ def create_app():
     # --- DB init ---
     db.init_app(app)
     with app.app_context():
-        db.create_all()  # create tables if missing
+        if os.environ.get("RUN_DB-CREATE_ALL") == "1":
+            db.create_all()
 
     # --- Auth ---
     login_manager = LoginManager(app)

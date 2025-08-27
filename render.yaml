@@ -18,6 +18,8 @@ services:
         value: jpg,jpeg,png,webp
       - key: MAX_CONTENT_LENGTH
         value: "8000000"
+    postDeployCommand: >
+      FLASK_APP=migrate.py flask db upgrade
 
 databases:
   - name: posh-db
