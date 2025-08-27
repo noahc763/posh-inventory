@@ -1,60 +1,58 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block content %}
 <section class="card">
-  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-    <h2 style="margin:0;">Your Items</h2>
-    <div style="display:flex; gap:8px;">
-      <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; gap:8px; align-items:center;">
-        <label class="field" style="flex-direction:row; align-items:center; gap:8px; margin:0;">
-          <span class="muted">Category</span>
-          <select name="category" onchange="this.form.submit()">
-            <option value="">All</option>
-            {% for c in categories %}
-              <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </form>
-      {% if categories %}
-        <!-- Quick add to first category (example); you could list all categories and add buttons per-row instead -->
-        <a class="btn" href="{{ url_for('items_new', category_id=categories[0].id) }}">Add Item</a>
-      {% endif %}
+  <div class="card-header">
+    <h2>Your Items</h2>
+    <div class="actions">
+      <a class="btn" href="/items/add">+ Add Item</a>
     </div>
   </div>
   <div class="card-body">
-    <table>
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Barcode</th>
-          <th>Category</th>
-          <th>Purchase</th>
-          <th>Sold</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for it in items %}
+    <form method="get" class="toolbar">
+      <label class="field">
+        <span>Filter by category</span>
+        <select name="category" onchange="this.form.submit()">
+          <option value="">All</option>
+          {% for c in categories %}
+            <option value="{{ c.id }}" {% if selected_cat==c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if selected_cat %}
+        <a class="btn ghost" href="/">Clear</a>
+      {% endif %}
+    </form>
+
+    <div class="table-wrap">
+      <table class="table table-zebra">
+        <thead>
           <tr>
-            <td>{{ it.title }}</td>
-            <td>{{ it.barcode or '—' }}</td>
-            <td>{{ it.category.name if it.category else '—' }}</td>
-            <td>${{ '%.2f'|format(it.purchase_price or 0) }}</td>
-            <td>
-              {% if it.sold_price %}
-                ${{ '%.2f'|format(it.sold_price) }}
-              {% else %} — {% endif %}
-            </td>
-            <td style="text-align:right;">
-              <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
-              <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
-            </td>
+            <th>Photo</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Barcode</th>
+            <th>Cost</th>
+            <th>List</th>
+            <th>Sold</th>
+            <th>Profit</th>
           </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted">No items yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for it in items %}
+          <tr>
+            <td class="cell-photo">{% if it.photo_path %}<img src="/{{ it.photo_path }}" alt="" />{% else %}<span class="badge">No photo</span>{% endif %}</td>
+            <td><a class="link" href="/items/{{ it.id }}">{{ it.title }}</a></td>
+            <td>{% if it.category %}<span class="badge">{{ it.category.name }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td class="mono">{{ it.barcode or '' }}</td>
+            <td class="mono">${{ '%.2f'|format(it.purchase_price or 0) }}</td>
+            <td class="mono">${{ '%.2f'|format(it.list_price or 0) }}</td>
+            <td class="mono">{% if it.sold_price %}${{ '%.2f'|format(it.sold_price) }}<br/><span class="muted small">{{ it.sold_date }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td class="mono">{% if it.sold_price %}${{ '%.2f'|format(it.profit()) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
 {% endblock %}

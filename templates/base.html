@@ -1,36 +1,41 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}Posh Inventory{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Posh Inventory</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body>
-  <header>
-    <div class="container actions" style="justify-content: space-between;">
-      <strong>Posh Inventory</strong>
-      <div class="actions">
-        <a class="btn" href="{{ url_for('dashboard') }}">Dashboard</a>
-        <a class="btn" href="{{ url_for('scan') }}">Scan</a>
-      </div>
+  <header class="app-header">
+    <div class="container header-inner">
+      <h1 class="brand">Posh Inventory</h1>
+      <nav class="nav">
+        <a class="nav-link" href="/">Dashboard</a>
+        <a class="nav-link" href="/scan">Scan</a>
+        <a class="nav-link" href="/items/add">Add Item</a>
+        <a class="nav-link" href="/categories">Categories</a>
+        <a class="nav-link danger" href="/logout">Logout</a>
+      </nav>
     </div>
   </header>
 
   <main class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="card">
-          <div class="card-body">
-            {% for category, message in messages %}
-              <div class="muted">{{ message }}</div>
-            {% endfor %}
-          </div>
+        <div class="toast-stack">
+          {% for category, message in messages %}
+            <div class="toast {{ category }}">{{ message }}</div>
+          {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
 
     {% block content %}{% endblock %}
   </main>
+
+  <footer class="app-footer">
+    <div class="container small">© Posh Inventory</div>
+  </footer>
 </body>
 </html>

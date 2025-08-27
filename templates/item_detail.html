@@ -5,7 +5,6 @@
     <h2 style="margin:0;">{{ item.title }}</h2>
     <div style="display:flex; gap:8px;">
       <a class="btn" href="{{ url_for('dashboard') }}">Back</a>
-      <a class="btn" href="{{ url_for('items.edit_item', item_id=item.id) }}">Edit</a>
       <a class="btn" href="{{ url_for('scan') }}">Scan Another</a>
     </div>
   </div>
@@ -18,8 +17,8 @@
     {%- endif -%}
   {%- endmacro %}
 
-  {% set payout_val = item.payout if item.payout is not none else None %}
-  {% set profit_val = item.profit if item.profit is not none else None %}
+  {% set payout_val = (item.sold_price * Decimal('0.80')) if item.sold_price else None %}
+  {% set profit_val = (item.sold_price * Decimal('0.80') - (item.purchase_price or 0)) if item.sold_price else None %}
 
   <div class="card-body" style="display:grid; gap:16px;">
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
@@ -79,6 +78,7 @@
 </section>
 
 <script>
+  // Show Return Date = Purchase Date + 30 days
   (function() {
     const el = document.getElementById('returnDateText');
     if (!el) return;

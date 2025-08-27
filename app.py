@@ -1,3 +1,4 @@
+# app.py
 import os
 from decimal import Decimal
 from datetime import datetime
@@ -6,9 +7,10 @@ from flask_login import LoginManager, login_required, current_user
 
 from config import Config
 from models import db, Item, Category, User
-from auth import auth_bp          # your existing auth blueprint (login/logout)
-from items import items_bp        # cleaned below
-from categories import categories_bp  # your existing categories blueprint
+from auth import auth_bp
+from items import items_bp
+from categories import categories_bp
+
 
 def create_app():
     app = Flask(
@@ -18,12 +20,12 @@ def create_app():
     )
     app.config.from_object(Config)
 
-    # DB
+    # --- DB init ---
     db.init_app(app)
     with app.app_context():
-        db.create_all()
+        db.create_all()  # create tables if missing
 
-    # Auth
+    # --- Auth ---
     login_manager = LoginManager(app)
     login_manager.login_view = "auth.login"
 
@@ -31,12 +33,12 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    # Blueprints
+    # --- Blueprints ---
     app.register_blueprint(auth_bp)
     app.register_blueprint(items_bp)
     app.register_blueprint(categories_bp)
 
-    # Helpers
+    # --- Helpers ---
     def normalize_barcode(raw: str) -> str:
         if not raw:
             return ""
@@ -54,7 +56,8 @@ def create_app():
         except Exception:
             return None
 
-    # Routes
+    # --- Routes ---
+
     @app.route("/")
     @login_required
     def dashboard():
@@ -64,7 +67,13 @@ def create_app():
             q = q.filter(Item.category_id == cat_id)
         items = q.order_by(Item.created_at.desc()).all()
         cats = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
-        return render_template("dashboard.html", items=items, categories=cats, selected_cat=cat_id, Decimal=Decimal)
+        return render_template(
+            "dashboard.html",
+            items=items,
+            categories=cats,
+            selected_cat=cat_id,
+            Decimal=Decimal,
+        )
 
     @app.route("/items/<int:item_id>")
     @login_required
@@ -72,34 +81,45 @@ def create_app():
         item = Item.query.filter_by(id=item_id, user_id=current_user.id).first_or_404()
         return render_template("item_detail.html", item=item, Decimal=Decimal)
 
+    # Scanner page (populated with the user's categories)
     @app.route("/scan")
     @login_required
     def scan():
         cats = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
         return render_template("scan.html", categories=cats)
 
+    # API the scanner calls to decide where to go
     @app.get("/api/items/lookup")
     @login_required
     def api_items_lookup():
         barcode = normalize_barcode(request.args.get("barcode", ""))
         if not barcode:
             return jsonify({"found": False}), 200
+
         item = Item.query.filter_by(user_id=current_user.id, barcode=barcode).first()
         if item:
             return jsonify({"found": True, "id": item.id}), 200
         return jsonify({"found": False}), 200
 
+    @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
+def items_new(category_id):
+    ...
+    return render_template("item_form.html", prefill={"barcode": barcode}, category=category)
+
+
     # ONE canonical "new item" path that includes category
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
     @login_required
     def items_new(category_id: int):
+        # Ensure the category belongs to this user
         category = Category.query.filter_by(id=category_id, user_id=current_user.id).first_or_404()
 
         if request.method == "GET":
+            # prefill barcode from ?barcode=... (scanner flow)
             barcode = request.args.get("barcode", "")
             return render_template("item_form.html", prefill={"barcode": barcode}, category=category)
 
-        # POST: create
+        # POST: create the item
         name            = (request.form.get("name") or "").strip()
         barcode         = normalize_barcode(request.form.get("barcode") or "")
         purchase_price  = request.form.get("purchase_price")
@@ -128,19 +148,24 @@ def create_app():
             purchase_date=parse_date(purchase_date),
             notes=notes or None,
         )
+
         db.session.add(item)
         try:
             db.session.commit()
         except Exception:
             db.session.rollback()
+            # likely unique constraint on (user_id, barcode)
             return ("Barcode already exists", 409)
 
         return redirect(url_for("item_detail", item_id=item.id))
 
+    # Health check
     @app.route("/healthz")
     def healthz():
         return {"ok": True}
 
     return app
 
+
+# WSGI entrypoint
 app = create_app()
