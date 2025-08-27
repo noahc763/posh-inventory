@@ -62,7 +62,7 @@
 
       <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
         <button class="btn" type="submit">Save Item</button>
-        <a class="btn" href="{{ url_for('dashboard') }}" style="text-decoration:none; display:inline-block; padding:8px 12px;">Cancel</a>
+        <a class="btn" href="{{ url_for('dashboard') }}">Cancel</a>
       </div>
     </form>
   </div>
@@ -85,16 +85,13 @@
     returnDate.value = toISODate(d);
   }
 
-  function dollars(n) {
-    if (n === null || isNaN(n)) return '—';
-    return '$' + n.toFixed(2);
-  }
+  function dollars(n) { if (n === null || isNaN(n)) return '—'; return '$' + n.toFixed(2); }
 
   function calcProfit() {
     const purchase = parseFloat(purchaseEl.value || '0');
     const sold     = parseFloat(soldEl.value || '0');
     if (isNaN(sold)) { profitEl.textContent = '—'; return; }
-    const payout = sold * 0.80;                // 20% Poshmark fee
+    const payout = sold * 0.80;   // 20% Poshmark fee
     const profit = payout - (isNaN(purchase) ? 0 : purchase);
     profitEl.textContent = dollars(profit);
   }
@@ -102,9 +99,6 @@
   purchaseDate.addEventListener('change', updateReturnDate);
   purchaseEl.addEventListener('input',  calcProfit);
   soldEl.addEventListener('input',      calcProfit);
-
-  // initialize on load
-  updateReturnDate();
-  calcProfit();
+  updateReturnDate(); calcProfit();
 </script>
 {% endblock %}

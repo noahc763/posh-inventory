@@ -31,7 +31,6 @@
     Tip: Allow camera access when prompted. On iPhone, the page must be opened over HTTPS and scanning starts after you tap a button.
   </p>
 
-  <!-- Category picker -->
   <div class="row">
     <div class="field">
       <span>Category</span>
@@ -44,14 +43,11 @@
     </div>
   </div>
 
-  <!-- Camera preview -->
   <video id="preview" playsinline muted></video>
 
   <div class="row">
     <button id="startBtn" type="button">Start Camera</button>
     <button id="stopBtn" type="button" disabled>Stop</button>
-
-    <!-- Fallback: upload a photo if live camera isn't available -->
     <label class="upload">
       <input id="photoInput" type="file" accept="image/*" capture="environment" class="hidden">
       <span>Or Upload a Photo</span>
@@ -63,11 +59,8 @@
   <canvas id="canvas"></canvas>
 </div>
 
-<!-- ZXing for live scanning -->
 <script src="https://unpkg.com/@zxing/library@0.20.0"></script>
-<!-- jsQR for fallback image decode -->
 <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
-
 <script>
   const video = document.getElementById('preview');
   const startBtn = document.getElementById('startBtn');
@@ -83,7 +76,6 @@
   function setResult(text) { resultEl.textContent = text ? `Scanned: ${text}` : ''; }
   function normalizeBarcode(raw) { return String(raw || '').trim(); }
 
-  // Redirect after barcode scan
   async function onBarcode(rawCode) {
     const barcode = normalizeBarcode(rawCode);
     const cat = categorySelect?.value;
@@ -91,9 +83,7 @@
     if (!cat) { alert("Pick a category first."); return; }
 
     try {
-      const r = await fetch(`/api/items/lookup?barcode=${encodeURIComponent(barcode)}`, {
-        headers: { "Accept": "application/json" }
-      });
+      const r = await fetch(`/api/items/lookup?barcode=${encodeURIComponent(barcode)}`, { headers: { "Accept": "application/json" }});
       const data = await r.json();
 
       if (data.found) {
@@ -106,112 +96,65 @@
     }
   }
 
-  // ZXing scanning loop
   let codeReader = null;
-
   async function startCamera() {
-    setResult('');
-    setStatus('Requesting camera… (tap Allow)');
-
+    setResult(''); setStatus('Requesting camera… (tap Allow)');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus('Camera API not supported. Use “Upload a Photo” instead.');
-      return;
+      setStatus('Camera API not supported. Use “Upload a Photo” instead.'); return;
     }
-
-    if (!codeReader) {
-      codeReader = new ZXing.BrowserMultiFormatReader();
-    } else {
-      codeReader.reset();
-    }
-
+    if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader(); else codeReader.reset();
     try {
-      const constraints = {
-        audio: false,
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
-      await video.play();
-
-      setStatus('Scanning… point the camera at a barcode.');
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:false, video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }});
+      video.srcObject = stream; await video.play();
+      setStatus('Scanning… point the camera at a barcode.'); startBtn.disabled = true; stopBtn.disabled = false;
 
       const decodeLoop = async () => {
         try {
           const result = await codeReader.decodeOnceFromVideoDevice(undefined, video);
           if (result && result.text) {
             const code = result.text;
-            setResult(code);
-            setStatus('Found a code. Redirecting…');
-            stopCamera();
-            onBarcode(code);
-            return;
+            setResult(code); setStatus('Found a code. Redirecting…');
+            stopCamera(); onBarcode(code); return;
           }
         } catch (err) {
-          if (!String(err).includes('NotFoundException')) {
-            console.warn(err);
-            setStatus('Scanning error: ' + (err?.message || err));
-          }
+          if (!String(err).includes('NotFoundException')) { console.warn(err); setStatus('Scanning error: ' + (err?.message || err)); }
         }
         if (video.srcObject) requestAnimationFrame(decodeLoop);
       };
       requestAnimationFrame(decodeLoop);
-
     } catch (err) {
       console.warn(err);
-      if (err.name === 'NotAllowedError') {
-        setStatus('Camera permission denied.');
-      } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-        setStatus('No suitable camera found.');
-      } else if (!window.isSecureContext) {
-        setStatus('Camera requires HTTPS.');
-      } else {
-        setStatus('Unable to access camera: ' + (err?.message || err));
-      }
+      if (err.name === 'NotAllowedError') setStatus('Camera permission denied.');
+      else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') setStatus('No suitable camera found.');
+      else if (!window.isSecureContext) setStatus('Camera requires HTTPS.');
+      else setStatus('Unable to access camera: ' + (err?.message || err));
     }
   }
 
   function stopCamera() {
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
+    startBtn.disabled = false; stopBtn.disabled = true;
     if (codeReader) codeReader.reset();
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
-    }
+    if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
   }
 
-  // Fallback: decode from uploaded photo
   photoInput.addEventListener('change', async (e) => {
     if (!e.target.files || !e.target.files[0]) return;
-    const file = e.target.files[0];
     const img = new Image();
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = img.width; canvas.height = img.height;
       ctx.drawImage(img, 0, 0, img.width, img.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const qr = jsQR(imageData.data, canvas.width, canvas.height);
-      if (qr && qr.data) {
-        const code = qr.data;
-        setResult(code);
-        setStatus('Decoded from photo. Redirecting…');
-        onBarcode(code);
-        return;
-      }
+      if (qr && qr.data) { const code = qr.data; setResult(code); setStatus('Decoded from photo. Redirecting…'); onBarcode(code); return; }
       setStatus('Could not detect a QR code in that photo.');
     };
     img.onerror = () => setStatus('Could not read image.');
-    img.src = URL.createObjectURL(file);
+    img.src = URL.createObjectURL(e.target.files[0]);
   });
 
   startBtn.addEventListener('click', startCamera);
   stopBtn.addEventListener('click', stopCamera);
-
-  video.setAttribute('playsinline', '');
-  video.setAttribute('muted', '');
+  video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
 </script>
 </body>
 </html>

@@ -1,112 +1,78 @@
-from datetime import date
+from datetime import datetime
 from decimal import Decimal
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from werkzeug.utils import secure_filename
-import os
 
 from models import db, Item, Category
-from posh import profit_after_fees
-from utils import allowed_file, save_upload
 
-items_bp = Blueprint('items', __name__)
+items_bp = Blueprint("items", __name__)
 
-@items_bp.route('/items/add', methods=['GET', 'POST'])
-@login_required
-def add_item():
-    if request.method == 'POST':
-        form = request.form
-        title = form.get('title')
-        if not title:
-            flash('Title is required', 'error')
-            return render_template('add_edit_item.html', item=None, categories=_user_categories())
+# ---------- Helpers ----------
+def _parse_money(v):
+    try:
+        return Decimal(v)
+    except Exception:
+        return None
 
-        photo_path = None
-        if 'photo' in request.files and request.files['photo'].filename:
-            photo_path = save_upload(request.files['photo'])
+def _parse_date(v):
+    try:
+        return datetime.strptime(v, "%Y-%m-%d").date() if v else None
+    except Exception:
+        return None
 
-        item = Item(
-            user_id=current_user.id,
-            title=title,
-            brand=form.get('brand') or None,
-            size=form.get('size') or None,
-            color=form.get('color') or None,
-            condition=form.get('condition') or None,
-            notes=form.get('notes') or None,
-            barcode=form.get('barcode') or None,
-            category_id=int(form.get('category_id') or 0) or None,
-            purchase_source=form.get('purchase_source') or None,
-            purchase_price=Decimal(form.get('purchase_price') or 0),
-            purchase_date=(form.get('purchase_date') or None),
-            list_price=Decimal(form.get('list_price') or 0) or None,
-            photo_path=photo_path
-        )
-        db.session.add(item)
-        db.session.commit()
-        flash('Item added', 'success')
-        return redirect(url_for('item_detail', item_id=item.id))
+def _user_categories():
+    return (
+        Category.query.filter_by(user_id=current_user.id)
+        .order_by(Category.name.asc())
+        .all()
+    )
 
-    return render_template('add_edit_item.html', item=None, categories=_user_categories())
-
-@items_bp.route('/items/<int:item_id>/edit', methods=['GET', 'POST'])
+# ---------- Routes ----------
+@items_bp.route("/items/<int:item_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_item(item_id):
     item = Item.query.filter_by(id=item_id, user_id=current_user.id).first_or_404()
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = request.form
-        item.title = form.get('title') or item.title
-        item.brand = form.get('brand') or None
-        item.size = form.get('size') or None
-        item.color = form.get('color') or None
-        item.condition = form.get('condition') or None
-        item.notes = form.get('notes') or None
-        item.barcode = form.get('barcode') or None
-        item.category_id = int(form.get('category_id') or 0) or None
-        item.purchase_source = form.get('purchase_source') or None
-        item.purchase_price = Decimal(form.get('purchase_price') or 0)
-        item.purchase_date = (form.get('purchase_date') or None)
-        item.list_price = Decimal(form.get('list_price') or 0) or None
+        item.title = form.get("title") or item.title
+        item.notes = form.get("notes") or None
 
-        if 'photo' in request.files and request.files['photo'].filename:
-            item.photo_path = save_upload(request.files['photo'])
+        # Category change (optional)
+        cat_id = form.get("category_id")
+        if cat_id:
+            cat = Category.query.filter_by(id=int(cat_id), user_id=current_user.id).first()
+            if cat:
+                item.category_id = cat.id
 
-        # Optional: mark sold
-        sold_price = form.get('sold_price')
-        sold_date = form.get('sold_date')
-        if sold_price:
-            item.sold_price = Decimal(sold_price)
-        if sold_date:
+        # Barcode + amounts/dates
+        item.barcode        = (form.get("barcode") or None)
+        item.purchase_source = form.get("purchase_source") or None
+        item.purchase_price  = _parse_money(form.get("purchase_price")) or item.purchase_price
+        item.list_price      = _parse_money(form.get("list_price"))
+        item.purchase_date   = _parse_date(form.get("purchase_date"))
+
+        sold_price = _parse_money(form.get("sold_price"))
+        sold_date  = _parse_date(form.get("sold_date"))
+        if sold_price is not None:
+            item.sold_price = sold_price
+        if sold_date is not None:
             item.sold_date = sold_date
 
-        db.session.commit()
-        flash('Item updated', 'success')
-        return redirect(url_for('item_detail', item_id=item.id))
+        try:
+            db.session.commit()
+            flash("Item updated", "success")
+        except Exception:
+            db.session.rollback()
+            flash("Could not update item (possibly barcode duplicate).", "error")
 
-    return render_template('add_edit_item.html', item=item, categories=_user_categories())
+        return redirect(url_for("item_detail", item_id=item.id))
 
-@items_bp.route('/scan', methods=['GET', 'POST'])
-@login_required
-def scan():
-    # POST when barcode was typed/scanned manually
-    if request.method == 'POST':
-        code = request.form.get('barcode', '').strip()
-        if not code:
-            flash('Scan or type a barcode', 'error')
-            return render_template('scan.html')
-        item = Item.query.filter_by(user_id=current_user.id, barcode=code).first()
-        if item:
-            return redirect(url_for('item_detail', item_id=item.id))
-        flash('No item with that barcode yet — fill the form to create one.', 'info')
-        return redirect(url_for('items.add_item') + f"?barcode={code}")
-    return render_template('scan.html')
+    # GET: edit form
+    return render_template("add_edit_item.html", item=item, categories=_user_categories())
 
-@items_bp.route('/items/by_barcode/<barcode>')
+@items_bp.route("/items/by_barcode/<barcode>")
 @login_required
 def by_barcode(barcode):
     item = Item.query.filter_by(user_id=current_user.id, barcode=barcode).first_or_404()
-    return redirect(url_for('item_detail', item_id=item.id))
-
-# helpers
-
-def _user_categories():
-    return Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
+    return redirect(url_for("item_detail", item_id=item.id))
