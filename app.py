@@ -101,11 +101,6 @@ def create_app():
             return jsonify({"found": True, "id": item.id}), 200
         return jsonify({"found": False}), 200
 
-    @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
-def items_new(category_id):
-    ...
-    return render_template("item_form.html", prefill={"barcode": barcode}, category=category)
-
 
     # ONE canonical "new item" path that includes category
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
