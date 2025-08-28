@@ -51,4 +51,3 @@ def api_create_category():
     db.session.add(cat)
     db.session.commit()
     return {'ok': True, 'id': cat.id, 'name': cat.name, 'created': True}, 201
-    
