@@ -35,3 +35,20 @@ def delete_category(cat_id):
     db.session.commit()
     flash('Category deleted.', 'success')
     return redirect(url_for('categories.manage_categories'))
+
+@categories_bp.post('/api/categories')
+@login_required
+def api_create_category():
+    # Create a new category for the current user; returns JSON
+    name = (request.form.get('name') or (request.json.get('name') if request.is_json else '')).strip()  # support form or JSON
+    if not name:
+        return {'ok': False, 'error': 'Name required'}, 400
+    # Check duplicate
+    exists = Category.query.filter_by(user_id=current_user.id, name=name).first()
+    if exists:
+        return {'ok': True, 'id': exists.id, 'name': exists.name, 'created': False}, 200
+    cat = Category(user_id=current_user.id, name=name)
+    db.session.add(cat)
+    db.session.commit()
+    return {'ok': True, 'id': cat.id, 'name': cat.name, 'created': True}, 201
+    

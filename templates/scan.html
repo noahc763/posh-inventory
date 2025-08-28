@@ -1,207 +1,159 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scan Barcode</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 16px; }
-    .wrap { max-width: 720px; margin: 0 auto; }
-    h1 { font-size: 1.25rem; margin: 0 0 8px; }
-    p.muted { color: #777; margin: 0 0 12px; font-size: 0.95rem; }
-    video { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16/9; }
-    .row { display:flex; gap:8px; margin:12px 0; flex-wrap: wrap; align-items: center; }
-    button, .btn, input[type=file], select { padding:10px 14px; border-radius:10px; border:1px solid #ccc; background:#f8f8f8; cursor:pointer; }
-    select { cursor: default; }
-    #status { margin-top: 4px; color: #555; min-height: 1.2em; }
-    #result { margin-top: 10px; font-weight: 600; word-break: break-all; }
-    .hidden { display: none; }
-    label.upload { display:inline-block; }
-    label.upload span { display:inline-block; padding:10px 14px; border:1px solid #ccc; border-radius:10px; background:#f8f8f8; cursor:pointer; }
-    canvas { display:none; }
-    .field { display:flex; gap:8px; align-items:center; }
-    .field span { font-size:0.95rem; color:#555; }
-  </style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Scan a Barcode</h1>
-  <p class="muted">
-    Tip: Allow camera access when prompted. On iPhone, the page must be opened over HTTPS and scanning starts after you tap a button.
-  </p>
+{% extends "base.html" %}
+{% block content %}
+<section class="card" style="max-width: 920px; margin: 0 auto;">
+  <div class="card-header">
+    <h2 style="margin:0;">Scan Item</h2>
+    <p class="muted" style="margin:6px 0 0;">Scan a barcode or upload a photo. After we read the barcode, you can choose an existing category or create a new one.</p>
+  </div>
 
-  <!-- Category picker -->
-  <div class="row">
-    <div class="field">
-      <span>Category</span>
-      <select id="categorySelect" required>
-        <option value="" disabled selected>Select a category</option>
-        {% for c in categories %}
-          <option value="{{ c.id }}">{{ c.name }}</option>
-        {% endfor %}
-      </select>
+  <div class="card-body" style="display:grid; gap:16px;">
+    <!-- Status / barcode result -->
+    <div id="status" class="muted" style="font-size:1rem;">Ready to scan.</div>
+
+    <!-- Video + controls -->
+    <div style="display:grid; gap:12px;">
+      <video id="video" style="width:100%; max-height:360px; border-radius:12px; background:#000;"></video>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="startBtn" class="btn">▶ Start Camera</button>
+        <button id="stopBtn" class="btn outline">⏹ Stop</button>
+        <label class="btn outline" for="fileInput">📷 Upload Photo</label>
+        <input id="fileInput" type="file" accept="image/*" style="display:none;">
+      </div>
+    </div>
+
+    <!-- After-scan actions -->
+    <div id="postScan" style="display:none; border-top:1px solid #e6e6e6; padding-top:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          <div class="muted" style="font-size:0.95rem;">Detected barcode</div>
+          <div id="barcodeValue" style="font-size:1.25rem; font-weight:600; letter-spacing:0.5px;"></div>
+        </div>
+        <div>
+          <button id="rescanBtn" class="btn outline">↺ Rescan</button>
+        </div>
+      </div>
+
+      <!-- Existing vs new category -->
+      <div style="display:grid; gap:10px; margin-top:12px;">
+        <label style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="min-width:120px;">Choose category</span>
+          <select id="catSelect" style="min-width:240px; padding:8px 10px; border-radius:10px; border:1px solid #ccc;">
+            <option value="" selected disabled>Select…</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span class="muted">or</span>
+          <input id="newCatName" placeholder="New category name" style="min-width:240px; padding:8px 10px; border-radius:10px; border:1px solid #ccc;">
+          <button id="createCatBtn" class="btn outline">+ Create</button>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="continueBtn" class="btn">Continue</button>
+        </div>
+      </div>
     </div>
   </div>
+</section>
 
-  <!-- Camera preview -->
-  <video id="preview" playsinline muted></video>
-
-  <div class="row">
-    <button id="startBtn" type="button">Start Camera</button>
-    <button id="stopBtn" type="button" disabled>Stop</button>
-
-    <!-- Fallback: upload a photo if live camera isn't available -->
-    <label class="upload">
-      <input id="photoInput" type="file" accept="image/*" capture="environment" class="hidden">
-      <span>Or Upload a Photo</span>
-    </label>
-  </div>
-
-  <div id="status">Idle</div>
-  <div id="result"></div>
-  <canvas id="canvas"></canvas>
-</div>
-
-<!-- ZXing for live scanning -->
-<script src="https://unpkg.com/@zxing/library@0.20.0"></script>
-<!-- jsQR for fallback image decode -->
-<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
-
+<script src="https://unpkg.com/@zxing/library@0.21.2"></script>
 <script>
-  const video = document.getElementById('preview');
-  const startBtn = document.getElementById('startBtn');
-  const stopBtn  = document.getElementById('stopBtn');
   const statusEl = document.getElementById('status');
-  const resultEl = document.getElementById('result');
-  const photoInput = document.getElementById('photoInput');
-  const categorySelect = document.getElementById('categorySelect');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
+  const video = document.getElementById('video');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const fileInput = document.getElementById('fileInput');
+  const postScan = document.getElementById('postScan');
+  const barcodeValue = document.getElementById('barcodeValue');
+  const catSelect = document.getElementById('catSelect');
+  const newCatName = document.getElementById('newCatName');
+  const createCatBtn = document.getElementById('createCatBtn');
+  const continueBtn = document.getElementById('continueBtn');
+  const rescanBtn = document.getElementById('rescanBtn');
 
-  function setStatus(msg) { statusEl.textContent = msg; }
-  function setResult(text) { resultEl.textContent = text ? `Scanned: ${text}` : ''; }
-  function normalizeBarcode(raw) { return String(raw || '').trim(); }
-
-  // Redirect after barcode scan
-  async function onBarcode(rawCode) {
-    const barcode = normalizeBarcode(rawCode);
-    const cat = categorySelect?.value;
-    if (!barcode) return;
-    if (!cat) { alert("Pick a category first."); return; }
-
-    try {
-      const r = await fetch(`/api/items/lookup?barcode=${encodeURIComponent(barcode)}`, {
-        headers: { "Accept": "application/json" }
-      });
-      const data = await r.json();
-
-      if (data.found) {
-        window.location.assign(`/items/${data.id}`);
-      } else {
-        window.location.assign(`/categories/${cat}/items/new?barcode=${encodeURIComponent(barcode)}`);
-      }
-    } catch (e) {
-      window.location.assign(`/categories/${cat}/items/new?barcode=${encodeURIComponent(barcode)}`);
-    }
-  }
-
-  // ZXing scanning loop
   let codeReader = null;
+  let stream = null;
+  let lastBarcode = '';
+
+  function setStatus(msg) {
+    statusEl.textContent = msg;
+  }
 
   async function startCamera() {
-    setResult('');
-    setStatus('Requesting camera… (tap Allow)');
+    try {
+      if (!codeReader) {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+      }
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      video.setAttribute('playsinline', '');
+      await video.play();
+      scanLoop();
+      setStatus('Camera started. Point at barcode…');
+    } catch (e) {
+      setStatus('Could not access camera: ' + e.message);
+    }
+  }
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus('Camera API not supported. Use “Upload a Photo” instead.');
+  async function stopCamera() {
+    try {
+      if (codeReader) {
+        codeReader.reset();
+      }
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      setStatus('Camera stopped.');
+    } catch (e) {
+      setStatus('Error stopping camera: ' + e.message);
+    }
+  }
+
+  async function scanLoop() {
+    if (!codeReader) return;
+    try {
+      const result = await codeReader.decodeOnceFromVideoDevice(undefined, 'video');
+      if (result && result.text) {
+        handleBarcode(result.text);
+      } else {
+        requestAnimationFrame(scanLoop);
+      }
+    } catch (e) {
+      // If user stopped, just quit
+    }
+  }
+
+  function handleBarcode(raw) {
+    lastBarcode = (raw || '').replace(/\D/g, '');
+    if (!lastBarcode) {
+      setStatus('Could not read a valid barcode. Try again.');
       return;
     }
-
-    if (!codeReader) {
-      codeReader = new ZXing.BrowserMultiFormatReader();
-    } else {
-      codeReader.reset();
-    }
-
-    try {
-      const constraints = {
-        audio: false,
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
-      await video.play();
-
-      setStatus('Scanning… point the camera at a barcode.');
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-
-      const decodeLoop = async () => {
-        try {
-          const result = await codeReader.decodeOnceFromVideoDevice(undefined, video);
-          if (result && result.text) {
-            const code = result.text;
-            setResult(code);
-            setStatus('Found a code. Redirecting…');
-            stopCamera();
-            onBarcode(code);
-            return;
-          }
-        } catch (err) {
-          if (!String(err).includes('NotFoundException')) {
-            console.warn(err);
-            setStatus('Scanning error: ' + (err?.message || err));
-          }
-        }
-        if (video.srcObject) requestAnimationFrame(decodeLoop);
-      };
-      requestAnimationFrame(decodeLoop);
-
-    } catch (err) {
-      console.warn(err);
-      if (err.name === 'NotAllowedError') {
-        setStatus('Camera permission denied.');
-      } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-        setStatus('No suitable camera found.');
-      } else if (!window.isSecureContext) {
-        setStatus('Camera requires HTTPS.');
-      } else {
-        setStatus('Unable to access camera: ' + (err?.message || err));
-      }
-    }
+    barcodeValue.textContent = lastBarcode;
+    postScan.style.display = 'block';
+    setStatus('Barcode detected.');
+    stopCamera();
   }
 
-  function stopCamera() {
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    if (codeReader) codeReader.reset();
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
-    }
-  }
-
-  // Fallback: decode from uploaded photo
-  photoInput.addEventListener('change', async (e) => {
-    if (!e.target.files || !e.target.files[0]) return;
-    const file = e.target.files[0];
+  // Upload image path
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
     const img = new Image();
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0, img.width, img.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const qr = jsQR(imageData.data, canvas.width, canvas.height);
-      if (qr && qr.data) {
-        const code = qr.data;
-        setResult(code);
-        setStatus('Decoded from photo. Redirecting…');
-        onBarcode(code);
-        return;
+    img.onload = async () => {
+      try {
+        if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
+        const luminanceSource = await ZXing.BrowserBarcodeReader.loadImageElement(img);
+        const hints = new ZXing.Map();
+        const result = await codeReader.decodeBitmap(luminanceSource, hints);
+        handleBarcode(result.text);
+      } catch (err) {
+        setStatus('No barcode detected in that image.');
       }
-      setStatus('Could not detect a QR code in that photo.');
     };
     img.onerror = () => setStatus('Could not read image.');
     img.src = URL.createObjectURL(file);
@@ -209,9 +161,44 @@
 
   startBtn.addEventListener('click', startCamera);
   stopBtn.addEventListener('click', stopCamera);
+  rescanBtn.addEventListener('click', () => {
+    postScan.style.display = 'none';
+    lastBarcode = '';
+    startCamera();
+  });
 
-  video.setAttribute('playsinline', '');
-  video.setAttribute('muted', '');
+  // Create category inline (POST to /api/categories)
+  createCatBtn.addEventListener('click', async () => {
+    const name = (newCatName.value || '').trim();
+    if (!name) { alert('Enter a category name'); return; }
+    try {
+      const resp = await fetch('{{ url_for("categories.api_create_category") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await resp.json();
+      if (!data.ok) { alert(data.error || 'Could not create category'); return; }
+      // add to select and select it
+      const opt = document.createElement('option');
+      opt.value = data.id;
+      opt.textContent = data.name;
+      let exists = false;
+      Array.from(catSelect.options).forEach(o => { if (o.value == String(data.id)) exists = true; });
+      if (!exists) catSelect.appendChild(opt);
+      catSelect.value = String(data.id);
+      newCatName.value = '';
+    } catch (e) {
+      alert('Failed to create category: ' + e.message);
+    }
+  });
+
+  // Continue flow: go to /items/new?category_id=...&barcode=...
+  continueBtn.addEventListener('click', () => {
+    const catId = catSelect.value;
+    if (!lastBarcode) { alert('Scan a barcode first.'); return; }
+    if (!catId) { alert('Pick or create a category.'); return; }
+    window.location.assign(`/items/new?category_id=${encodeURIComponent(catId)}&barcode=${encodeURIComponent(lastBarcode)}`);
+  });
 </script>
-</body>
-</html>
+{% endblock %}
