@@ -228,3 +228,14 @@
   .right { margin-left: auto; }
   .center { text-align: center; }
   
+
+/* Form input helper */
+.input {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fs-base);
+}
+.input:focus { outline: 2px solid var(--focus); outline-offset: 1px; }

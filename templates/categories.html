@@ -20,8 +20,8 @@
     </form>
 
     {% if categories %}
-      <div class="table-wrap" style="margin-top:12px;">
-        <table class="table table-zebra">
+      <div class="table-wrap" >
+        <table class="table">
           <thead>
             <tr>
               <th>Name</th>
@@ -47,14 +47,14 @@
         </table>
       </div>
     {% else %}
-      <div class="toast-stack" style="margin-top:12px;">
+      <div class="toast-stack" >
         <div class="toast">
           No categories yet. Add your first one above to start organizing items.
         </div>
       </div>
     {% endif %}
 
-    <p style="margin-top:12px;"><a class="link" href="{{ url_for('dashboard') }}">← Back to dashboard</a></p>
+    <p ><a class="link" href="{{ url_for('dashboard') }}">← Back to dashboard</a></p>
   </div>
 </section>
 {% endblock %}

@@ -3,17 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
   <title>Posh Inventory</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
   <header class="app-header">
     <div class="container header-inner">
-      <h1 class="brand">Posh Inventory</h1>
+      <div class="brand-wrap">
+        <h1 class="brand">Posh Inventory</h1>
+        <span class="badge">beta</span>
+      </div>
       <nav class="nav">
-        <a class="nav-link" href="/">Dashboard</a>
+        <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
         <a class="nav-link" href="{{ url_for('scan') }}">Scan</a>
-        <a class="nav-link" href="{{ url_for('legacy_items_add') }}">Add Item</a>
         <a class="nav-link" href="{{ url_for('categories.manage_categories') }}">Categories</a>
         <a class="nav-link danger" href="{{ url_for('auth.logout') }}">Logout</a>
       </nav>
@@ -23,11 +26,18 @@
   <main class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="toast-stack">
+        <div class="toast-stack" id="toastStack">
           {% for category, message in messages %}
             <div class="toast {{ category }}">{{ message }}</div>
           {% endfor %}
         </div>
+        <script>
+          // auto dismiss toasts after 4s
+          setTimeout(() => {
+            document.querySelectorAll('#toastStack .toast').forEach(el => el.classList.add('hide'));
+            setTimeout(() => document.getElementById('toastStack')?.remove(), 500);
+          }, 4000);
+        </script>
       {% endif %}
     {% endwith %}
 
@@ -35,7 +45,7 @@
   </main>
 
   <footer class="app-footer">
-    <div class="container small">© Posh Inventory</div>
+    <div class="container small">© {{  now().year if false else "Posh Inventory"  }} Posh Inventory</div>
   </footer>
 </body>
 </html>

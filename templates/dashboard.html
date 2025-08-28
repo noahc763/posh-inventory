@@ -4,13 +4,10 @@
   <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
     <h2 style="margin:0;">Your Items</h2>
 
-    <!-- Actions: Scan + Manual Add -->
     <div class="actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <a class="btn" href="{{ url_for('scan') }}">📷 Scan Barcode</a>
-
-      <!-- Manual add: choose category, then jump to new-item form -->
       <div style="display:flex;gap:8px;align-items:center;">
-        <select id="manualAddCategory" style="min-width:200px;padding:8px 10px;border-radius:10px;border:1px solid #ccc;">
+        <select id="manualAddCategory" class="input" style="min-width:220px;">
           <option value="" disabled {% if not selected_cat %}selected{% endif %}>Select category…</option>
           {% for c in categories %}
             <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
@@ -22,66 +19,72 @@
   </div>
 
   <div class="card-body">
-    <!-- Filter by category (existing behavior) -->
-    <form method="get" action="{{ url_for('dashboard') }}" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+    <form method="get" action="{{ url_for('dashboard') }}" class="toolbar" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:8px;">
         <span class="muted">Filter:</span>
-        <select name="category" onchange="this.form.submit()" style="min-width:200px;padding:8px 10px;border-radius:10px;border:1px solid #ccc;">
-          <option value="">All Categories</option>
+        <select name="category" class="input" onchange="this.form.submit()" style="min-width:220px;">
+          <option value="">All categories</option>
           {% for c in categories %}
             <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
           {% endfor %}
         </select>
       </label>
       {% if selected_cat %}
-        <a class="btn" href="{{ url_for('dashboard') }}">Clear</a>
+        <a href="{{ url_for('dashboard') }}" class="btn outline">Clear</a>
       {% endif %}
     </form>
 
-    <!-- Items table -->
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr>
-          <th style="text-align:left;border-bottom:1px solid #eee;padding:8px 10px;">Title</th>
-          <th style="text-align:left;border-bottom:1px solid #eee;padding:8px 10px;">Barcode</th>
-          <th style="text-align:left;border-bottom:1px solid #eee;padding:8px 10px;">Category</th>
-          <th style="text-align:left;border-bottom:1px solid #eee;padding:8px 10px;">Purchase</th>
-          <th style="text-align:left;border-bottom:1px solid #eee;padding:8px 10px;">Sold</th>
-          <th style="text-align:right;border-bottom:1px solid #eee;padding:8px 10px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for it in items %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
           <tr>
-            <td style="padding:8px 10px;">{{ it.title }}</td>
-            <td style="padding:8px 10px;">{{ it.barcode or '—' }}</td>
-            <td style="padding:8px 10px;">{{ it.category.name if it.category else '—' }}</td>
-            <td style="padding:8px 10px;">${{ '%.2f'|format(it.purchase_price or 0) }}</td>
-            <td style="padding:8px 10px;">
+            <th>Title</th>
+            <th>Barcode</th>
+            <th>Category</th>
+            <th>Purchase</th>
+            <th>Sold</th>
+            <th class="right"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in items %}
+          <tr>
+            <td><a class="link" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title }}</a></td>
+            <td>{{ it.barcode or "—" }}</td>
+            <td>{{ it.category.name if it.category else "—" }}</td>
+            <td>
+              {% if it.purchase_price %}
+                ${{ '%.2f'|format(it.purchase_price) }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
               {% if it.sold_price %}
                 ${{ '%.2f'|format(it.sold_price) }}
-              {% else %} — {% endif %}
+              {% else %}
+                —
+              {% endif %}
             </td>
-            <td style="padding:8px 10px;text-align:right;white-space:nowrap;">
-              <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
-              <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
+            <td class="right">
+              <a class="btn outline" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
+              <a class="btn outline" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
             </td>
           </tr>
-        {% else %}
+          {% else %}
           <tr><td colspan="6" class="muted" style="padding:10px;">No items yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
 
 <script>
-  // Manual Add: when user clicks "+ Add Item", go to the shortcut route which redirects to the canonical path.
   document.getElementById('manualAddBtn')?.addEventListener('click', () => {
     const sel = document.getElementById('manualAddCategory');
     const cat = sel?.value;
     if (!cat) { alert('Pick a category first.'); return; }
-    // uses the /items/new shortcut you added in app.py
     window.location.assign(`/items/new?category_id=${encodeURIComponent(cat)}`);
   });
 </script>
