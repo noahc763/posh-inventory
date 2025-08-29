@@ -111,15 +111,64 @@ def create_app():
 
     # 2) Handy shortcut: '/items/new?category_id=<id>&barcode=<optional>'
     #    Redirects to the canonical category-aware route used by both manual and scan flows.
-    @app.route("/items/new")
+    @app.route('/items/new', methods=['GET', 'POST'])
     @login_required
-    def items_new_shortcut():
-        category_id = request.args.get("category_id", type=int)
-        barcode = request.args.get("barcode", "")
-        if not category_id:
-            # If no category provided, send to the scan page where user can pick one
-            return redirect(url_for("scan"))
-        return redirect(url_for("items_new", category_id=category_id, barcode=barcode))
+    def items_new():
+        # optional prefill from querystring (e.g., from scan flow)
+        prefill = {
+            "barcode": request.args.get("barcode", "")
+        }
+
+        # All categories for the current user (for the dropdown)
+        categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
+
+        # Category may come from query (prefill) or the form itself
+        cat_id = request.args.get("category_id", type=int) or request.form.get("category_id", type=int)
+        category = Category.query.filter_by(id=cat_id, user_id=current_user.id).first() if cat_id else None
+
+        if request.method == 'POST':
+            # Accept either "title" or legacy "name"
+            title = (request.form.get('title') or request.form.get('name') or '').strip()
+            if not title:
+                flash('Title is required.', 'error')
+                return render_template('item_form.html', categories=categories, category=category, prefill=prefill)
+
+            if not category:
+                flash('Please select a category.', 'error')
+                return render_template('item_form.html', categories=categories, category=None, prefill=prefill)
+
+            def as_decimal(field):
+                raw = (request.form.get(field) or '').strip()
+                return Decimal(raw) if raw else None
+
+            def as_datetime(field):
+                raw = (request.form.get(field) or '').strip()
+                try:
+                    return datetime.fromisoformat(raw) if raw else None
+                except Exception:
+                    return None
+
+            item = Item(
+                user_id=current_user.id,
+                category_id=category.id,
+                title=title,  # if your model uses `name`, change to `name=title`
+                barcode=(request.form.get('barcode') or None),
+                size=(request.form.get('size') or None),
+                color=(request.form.get('color') or None),
+                purchase_price=as_decimal('purchase_price'),
+                listed_price=as_decimal('listing_price'),    # adjust to your field name if different
+                sold_price=as_decimal('sold_price'),
+                sold_date=as_datetime('sold_date'),
+                condition=(request.form.get('condition') or None),
+                notes=(request.form.get('notes') or None),
+            )
+            db.session.add(item)
+            db.session.commit()
+            flash('Item added.', 'success')
+            return redirect(url_for('item_detail', item_id=item.id))
+
+        # GET -> render form, category may be None (that’s fine)
+        return render_template('item_form.html', categories=categories, category=category, prefill=prefill)
 
     # ONE canonical "new item" path that includes category
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])

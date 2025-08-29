@@ -2,15 +2,25 @@
 {% block content %}
 <section class="card" style="max-width: 760px; margin: 0 auto;">
   <div class="card-header">
-    <h2>New Item in {{ category.name }}</h2>
+    <h2>New Item{% if category %} in {{ category.name }}{% endif %}</h2>
   </div>
 
   <div class="card-body">
-    <form action="{{ url_for('items_new', category_id=category.id) }}" method="post" enctype="multipart/form-data" class="grid-form" style="display:grid; gap:12px;">
+    <form action="{{ url_for('items_new') }}" method="post" enctype="multipart/form-data" class="grid-form" style="display:grid; gap:12px;">
+
+      <label class="field">
+        <span>Category *</span>
+        <select name="category_id" required>
+          <option value="" {% if not category %}selected{% endif %}>— Select —</option>
+          {% for c in categories %}
+            <option value="{{ c.id }}" {% if category and category.id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
 
       <label class="field">
         <span>Title *</span>
-        <input name="name" placeholder="e.g., Nike Air Max 270" required />
+        <input name="title" placeholder="e.g., Nike Air Max 270" required />
       </label>
 
       <label class="field">
