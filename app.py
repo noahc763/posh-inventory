@@ -111,6 +111,19 @@ def create_app():
 
     # 2) Handy shortcut: '/items/new?category_id=<id>&barcode=<optional>'
     #    Redirects to the canonical category-aware route used by both manual and scan flows.
+    @app.route("/items/new")
+    @login_required
+    def items_new_shortcut():
+        category_id = request.args.get("category_id", type=int)
+        barcode = request.args.get("barcode", "")
+        if not category_id:
+            # If no category provided, send to the scan page where user can pick one
+            return redirect(url_for("scan"))
+        return redirect(url_for("items_new", category_id=category_id, barcode=barcode))
+
+    # ONE canonical "new item" path that includes category
+    @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
+    @login_required
     @app.route('/items/new', methods=['GET', 'POST'])
     @login_required
     def items_new():
@@ -169,58 +182,6 @@ def create_app():
 
         # GET -> render form, category may be None (that’s fine)
         return render_template('item_form.html', categories=categories, category=category, prefill=prefill)
-
-    # ONE canonical "new item" path that includes category
-    @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
-    @login_required
-    def items_new(category_id: int):
-        # Ensure the category belongs to this user
-        category = Category.query.filter_by(id=category_id, user_id=current_user.id).first_or_404()
-
-        if request.method == "GET":
-            # prefill barcode from ?barcode=... (scanner or manual shortcut)
-            barcode = request.args.get("barcode", "")
-            return render_template("item_form.html", prefill={"barcode": barcode}, category=category)
-
-        # POST: create the item
-        name            = (request.form.get("name") or "").strip()
-        barcode         = normalize_barcode(request.form.get("barcode") or "")
-        purchase_price  = request.form.get("purchase_price")
-        sold_price      = request.form.get("sold_price")
-        purchase_date   = request.form.get("purchase_date")
-        purchase_source = (request.form.get("purchase_source") or "").strip()
-        list_price      = request.form.get("list_price")
-        notes           = request.form.get("notes")
-
-        if not barcode:
-            return ("Barcode required", 400)
-
-        existing = Item.query.filter_by(user_id=current_user.id, barcode=barcode).first()
-        if existing:
-            return redirect(url_for("item_detail", item_id=existing.id))
-
-        item = Item(
-            user_id=current_user.id,
-            category_id=category.id,
-            title=name or "Untitled",
-            barcode=barcode,
-            purchase_source=purchase_source or None,
-            purchase_price=parse_money(purchase_price) or Decimal("0.00"),
-            list_price=parse_money(list_price),
-            sold_price=parse_money(sold_price),
-            purchase_date=parse_date(purchase_date),
-            notes=notes or None,
-        )
-
-        db.session.add(item)
-        try:
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-            # likely unique constraint on (user_id, barcode)
-            return ("Barcode already exists", 409)
-
-        return redirect(url_for("item_detail", item_id=item.id))
 
     # Health check
     @app.route("/healthz")
