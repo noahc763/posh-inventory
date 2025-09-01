@@ -108,7 +108,7 @@ def create_app():
     def legacy_items_add():
         return redirect(url_for("items_new"), code=301)
 
-    # Single canonical form; category can be chosen in-form.
+    # app.py (inside create_app())
     @app.route("/items/new", methods=["GET", "POST"])
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
     @login_required
@@ -116,13 +116,13 @@ def create_app():
         prefill = {"barcode": request.args.get("barcode", "")}
 
         categories = (Category.query
-                      .filter_by(user_id=current_user.id)
-                      .order_by(Category.name.asc())
-                      .all())
+                    .filter_by(user_id=current_user.id)
+                    .order_by(Category.name.asc())
+                    .all())
 
         cat_id = (category_id
-                  or request.args.get("category_id", type=int)
-                  or request.form.get("category_id", type=int))
+                or request.args.get("category_id", type=int)
+                or request.form.get("category_id", type=int))
         category = (Category.query
                     .filter_by(id=cat_id, user_id=current_user.id)
                     .first()) if cat_id else None
@@ -132,10 +132,6 @@ def create_app():
             if not title:
                 flash("Title is required.", "error")
                 return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
-
-            if not category:
-                flash("Please select a category.", "error")
-                return render_template("item_form.html", categories=categories, category=None, prefill=prefill)
 
             def as_decimal(field):
                 raw = (request.form.get(field) or "").strip()
@@ -153,8 +149,8 @@ def create_app():
 
             item = Item(
                 user_id=current_user.id,
-                category_id=category.id,
-                title=title,                              # change to name=title if your model uses `name`
+                category_id=(category.id if category else None),  # ← may be None
+                title=title,
                 barcode=(request.form.get("barcode") or None),
                 size=(request.form.get("size") or None),
                 color=(request.form.get("color") or None),
