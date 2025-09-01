@@ -2,7 +2,7 @@
 import os
 from decimal import Decimal
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_login import LoginManager, login_required, current_user
 
 from config import Config
@@ -23,7 +23,6 @@ def create_app():
     # --- DB init ---
     db.init_app(app)
     with app.app_context():
-        # Fixed env var name + os.environ
         if os.environ.get("RUN_DB_CREATE_ALL") == "1":
             db.create_all()
 
@@ -83,79 +82,70 @@ def create_app():
         item = Item.query.filter_by(id=item_id, user_id=current_user.id).first_or_404()
         return render_template("item_detail.html", item=item, Decimal=Decimal)
 
-    # Scanner page (populated with the user's categories)
+    # Scanner page
     @app.route("/scan")
     @login_required
     def scan():
         cats = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
         return render_template("scan.html", categories=cats)
 
-    # API the scanner calls to decide where to go
+    # Lookup API
     @app.get("/api/items/lookup")
     @login_required
     def api_items_lookup():
         barcode = normalize_barcode(request.args.get("barcode", ""))
         if not barcode:
             return jsonify({"found": False}), 200
-
         item = Item.query.filter_by(user_id=current_user.id, barcode=barcode).first()
         if item:
             return jsonify({"found": True, "id": item.id}), 200
         return jsonify({"found": False}), 200
 
-    # === Manual Add support (no new templates needed) ===
-    # 1) Legacy '/items/add' -> redirect to scanner (avoids 404s from bots/old links)
+    # === Manual Add / New Item ===
+
+    # Legacy link support
     @app.route("/items/add")
     def legacy_items_add():
-        return redirect(url_for("scan"), code=301)
+        return redirect(url_for("items_new"), code=301)
 
-    # 2) Handy shortcut: '/items/new?category_id=<id>&barcode=<optional>'
-    #    Redirects to the canonical category-aware route used by both manual and scan flows.
-    @app.route("/items/new")
-    @login_required
-    def items_new_shortcut():
-        category_id = request.args.get("category_id", type=int)
-        barcode = request.args.get("barcode", "")
-        if not category_id:
-            # If no category provided, send to the scan page where user can pick one
-            return redirect(url_for("scan"))
-        return redirect(url_for("items_new", category_id=category_id, barcode=barcode))
-
-    # ONE canonical "new item" path that includes category
+    # Single canonical form; category can be chosen in-form.
+    @app.route("/items/new", methods=["GET", "POST"])
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
     @login_required
-    @app.route('/items/new', methods=['GET', 'POST'])
-    @login_required
-    def items_new():
-        # optional prefill from querystring (e.g., from scan flow)
-        prefill = {
-            "barcode": request.args.get("barcode", "")
-        }
+    def items_new(category_id=None):
+        prefill = {"barcode": request.args.get("barcode", "")}
 
-        # All categories for the current user (for the dropdown)
-        categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
+        categories = (Category.query
+                      .filter_by(user_id=current_user.id)
+                      .order_by(Category.name.asc())
+                      .all())
 
-        # Category may come from query (prefill) or the form itself
-        cat_id = request.args.get("category_id", type=int) or request.form.get("category_id", type=int)
-        category = Category.query.filter_by(id=cat_id, user_id=current_user.id).first() if cat_id else None
+        cat_id = (category_id
+                  or request.args.get("category_id", type=int)
+                  or request.form.get("category_id", type=int))
+        category = (Category.query
+                    .filter_by(id=cat_id, user_id=current_user.id)
+                    .first()) if cat_id else None
 
-        if request.method == 'POST':
-            # Accept either "title" or legacy "name"
-            title = (request.form.get('title') or request.form.get('name') or '').strip()
+        if request.method == "POST":
+            title = (request.form.get("title") or request.form.get("name") or "").strip()
             if not title:
-                flash('Title is required.', 'error')
-                return render_template('item_form.html', categories=categories, category=category, prefill=prefill)
+                flash("Title is required.", "error")
+                return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
 
             if not category:
-                flash('Please select a category.', 'error')
-                return render_template('item_form.html', categories=categories, category=None, prefill=prefill)
+                flash("Please select a category.", "error")
+                return render_template("item_form.html", categories=categories, category=None, prefill=prefill)
 
             def as_decimal(field):
-                raw = (request.form.get(field) or '').strip()
-                return Decimal(raw) if raw else None
+                raw = (request.form.get(field) or "").strip()
+                try:
+                    return Decimal(raw) if raw else None
+                except Exception:
+                    return None
 
             def as_datetime(field):
-                raw = (request.form.get(field) or '').strip()
+                raw = (request.form.get(field) or "").strip()
                 try:
                     return datetime.fromisoformat(raw) if raw else None
                 except Exception:
@@ -164,24 +154,23 @@ def create_app():
             item = Item(
                 user_id=current_user.id,
                 category_id=category.id,
-                title=title,  # if your model uses `name`, change to `name=title`
-                barcode=(request.form.get('barcode') or None),
-                size=(request.form.get('size') or None),
-                color=(request.form.get('color') or None),
-                purchase_price=as_decimal('purchase_price'),
-                listed_price=as_decimal('listing_price'),    # adjust to your field name if different
-                sold_price=as_decimal('sold_price'),
-                sold_date=as_datetime('sold_date'),
-                condition=(request.form.get('condition') or None),
-                notes=(request.form.get('notes') or None),
+                title=title,                              # change to name=title if your model uses `name`
+                barcode=(request.form.get("barcode") or None),
+                size=(request.form.get("size") or None),
+                color=(request.form.get("color") or None),
+                purchase_price=as_decimal("purchase_price"),
+                listed_price=as_decimal("listing_price"),
+                sold_price=as_decimal("sold_price"),
+                sold_date=as_datetime("sold_date"),
+                condition=(request.form.get("condition") or None),
+                notes=(request.form.get("notes") or None),
             )
             db.session.add(item)
             db.session.commit()
-            flash('Item added.', 'success')
-            return redirect(url_for('item_detail', item_id=item.id))
+            flash("Item added.", "success")
+            return redirect(url_for("item_detail", item_id=item.id))
 
-        # GET -> render form, category may be None (that’s fine)
-        return render_template('item_form.html', categories=categories, category=category, prefill=prefill)
+        return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
 
     # Health check
     @app.route("/healthz")
