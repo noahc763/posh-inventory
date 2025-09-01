@@ -336,3 +336,35 @@ form[action*="login"] input {
   display: inline-block;
 }
 
+/* === Subtle toasts: outline only, no bright background === */
+.toast,
+.toast.message,   /* Flask-Login often uses 'message' */
+.toast.info {
+  background: transparent !important;
+  color: #0f172a !important;        /* dark, readable */
+  border: 1px solid #cbd5e1 !important; /* slate-300 outline */
+  box-shadow: none !important;
+}
+
+/* Variants stay subtle, just tinted borders/text */
+.toast.success { border-color: #86efac !important; color: #166534 !important; } /* green-200 / green-800 */
+.toast.error   { border-color: #fecaca !important; color: #7f1d1d !important; } /* red-200 / red-900 */
+.toast.warn    { border-color: #fde68a !important; color: #92400e !important; } /* amber-200 / amber-900 */
+
+/* Tighten spacing a touch */
+.toast-stack { gap: 6px; margin-bottom: 12px; }
+
+/* Dark mode parity */
+@media (prefers-color-scheme: dark){
+  .toast,
+  .toast.message,
+  .toast.info {
+    background: transparent !important;
+    color: #e5e7eb !important;         /* slate-200 */
+    border-color: #334155 !important;  /* slate-700 */
+  }
+  .toast.success { border-color: #14532d !important; color: #bbf7d0 !important; }
+  .toast.error   { border-color: #7f1d1d !important; color: #fecaca !important; }
+  .toast.warn    { border-color: #78350f !important; color: #fde68a !important; }
+}
+
