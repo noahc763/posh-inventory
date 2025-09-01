@@ -174,3 +174,68 @@ label.field>span{display:block;margin-bottom:6px;color:var(--ink-muted);font-siz
   filter:brightness(0.98);     /* tiny dim on hover */
 }
 
+/* === Softer, low-glare inputs & selects === */
+.input,
+select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="file"],
+textarea {
+  background: #f1f5f9;     /* soft slate-100 (not pure white) */
+  color: #0f172a;          /* slate-900 text */
+  border-color: #cbd5e1;   /* slate-300 border for clearer edges */
+}
+
+.input:focus,
+select:focus,
+input:focus,
+textarea:focus {
+  outline: 3px solid #93c5fd;   /* visible but not harsh */
+  outline-offset: 1px;
+  background: #e2e8f0;          /* slightly darker on focus */
+  border-color: #93c5fd;
+}
+
+/* Legible placeholder text */
+::placeholder {
+  color: #64748b; /* slate-500 */
+}
+
+/* Autofill (Safari/Chrome) – remove bright yellow background */
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a;
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* Disabled fields still readable without glare */
+.input:disabled,
+select:disabled,
+input:disabled,
+textarea:disabled {
+  background: #e5e7eb;   /* slate-200 */
+  color: #94a3b8;        /* slate-400 */
+}
+
+/* Optional: reduce glare on small inline selects (like dashboard filters) */
+select.input,
+select {
+  background-image: none; /* keep native caret; avoids shiny gradients */
+}
+
+/* Dark mode parity */
+@media (prefers-color-scheme: dark){
+  .input,
+  select,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="file"],
+  textarea {
+    background: #0b1220;    /* deep slate */
+    co
