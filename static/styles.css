@@ -251,3 +251,68 @@ select {
     border-color: #1d4ed8;
   }
 }
+
+/* ===== FINAL: readable inputs & selects (high-contrast, overrides) ===== */
+:root{
+  --input-bg: #ffffff;      /* crisp, readable background */
+  --input-text: #0f172a;    /* dark text */
+  --input-border: #cbd5e1;  /* subtle but visible border */
+  --input-ph: #64748b;      /* placeholder */
+}
+
+/* Force text & background on all common fields */
+input, select, textarea, .input {
+  background: var(--input-bg) !important;
+  color: var(--input-text) !important;
+  border: 1px solid var(--input-border) !important;
+}
+
+/* Make sure options are readable in the dropdown list */
+select option {
+  color: var(--input-text) !important;
+  background: var(--input-bg) !important;
+}
+
+/* Placeholder legibility */
+::placeholder {
+  color: var(--input-ph) !important;
+  opacity: 1 !important;
+}
+
+/* Autofill (Safari/Chrome): remove pale/yellow fill and keep dark text */
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--input-text) !important;
+  box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  transition: background-color 9999s ease-out 0s !important;
+}
+
+/* Disabled fields: still readable, just muted */
+input:disabled, select:disabled, textarea:disabled, .input:disabled {
+  background: #eef2f7 !important;
+  color: #94a3b8 !important;
+  border-color: #d0d7e2 !important;
+}
+
+/* If you use a placeholder option in <select> */
+select:invalid,
+select option[disabled] {
+  color: var(--input-ph) !important;
+}
+
+/* Dark mode parity (only when user’s system is dark) */
+@media (prefers-color-scheme: dark){
+  :root{
+    --input-bg: #0f172a;
+    --input-text: #e5e7eb;
+    --input-border: #334155;
+    --input-ph: #9ca3af;
+  }
+}
+
+/* Safety net for the auth form specifically */
+form[action*="login"] input {
+  background: var(--input-bg) !important;
+  color: var(--input-text) !important;
+}
+
