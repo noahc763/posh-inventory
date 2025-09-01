@@ -143,3 +143,34 @@ label.field>span{display:block;margin-bottom:6px;color:var(--ink-muted);font-siz
   .nav-link.active{background:#1e293b;border-color:#334155}
   .table tbody tr:nth-child(odd){background:#0b1220}
 }
+
+/* ===== Softer button whites (keeps WCAG contrast) ===== */
+:root{
+  /* Slightly off-white for text on primary buttons (still AA contrast on #2563eb) */
+  --brand-ink:#f1f5f9; /* was #ffffff */
+}
+
+/* Primary button text is now a soft white */
+.btn{
+  color: var(--brand-ink);
+}
+
+/* Outline buttons: no more pure white slabs */
+.btn.outline{
+  background:#f8fafc;         /* softer than #fff */
+  color:var(--ink);
+  border-color:#dfe3eb;        /* a touch darker to reduce glare */
+}
+.btn.outline:hover{
+  background:#eef2f7;
+}
+
+/* Optional: make primary button a hair darker so the whole chip glows less */
+.btn{
+  background:#1d4ed8;          /* was var(--brand) (#2563eb). Subtle darken for less luminance */
+}
+.btn:hover{
+  opacity:1;                   /* remove the fade so hover doesn’t 'flash' brighter */
+  filter:brightness(0.98);     /* tiny dim on hover */
+}
+
