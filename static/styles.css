@@ -316,3 +316,23 @@ form[action*="login"] input {
   color: var(--input-text) !important;
 }
 
+/* Low-glare empty states */
+.table tbody tr.empty-row { background: transparent !important; }          /* kill zebra on the row */
+.table tbody tr.empty-row td {
+  background: #eef2f7 !important;   /* soft slate, not white */
+  color: #334155 !important;        /* dark slate text */
+  border: 1px solid #d5dbe5;        /* subtle border so it doesn't glow */
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+/* Optional: if you wrap the message in a div */
+.empty-note {
+  background: #eef2f7;
+  color: #334155;
+  border: 1px solid #d5dbe5;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: inline-block;
+}
+
