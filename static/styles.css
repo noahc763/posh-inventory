@@ -368,3 +368,38 @@ form[action*="login"] input {
   .toast.warn    { border-color: #78350f !important; color: #fde68a !important; }
 }
 
+/* === Dimmer outline buttons (low-glare) === */
+.btn.outline {
+  background: #eef2f7 !important;   /* softer than white */
+  color: #1f2937 !important;         /* slate-800 text */
+  border-color: #cbd5e1 !important;  /* slate-300 border */
+  box-shadow: none !important;
+}
+.btn.outline:hover {
+  background: #e5e7eb !important;    /* slate-200 */
+  border-color: #c5ceda !important;
+}
+.btn.outline:active {
+  background: #e2e8f0 !important;    /* slate-300-ish */
+}
+
+/* Keep disabled buttons subdued & readable */
+.btn:disabled,
+.btn[disabled] {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+/* Dark mode parity */
+@media (prefers-color-scheme: dark){
+  .btn.outline {
+    background: #0f172a !important;  /* deep slate */
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+  }
+  .btn.outline:hover {
+    background: #0b1220 !important;
+  }
+}
+
+
