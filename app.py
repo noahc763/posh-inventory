@@ -172,6 +172,9 @@ def create_app():
     def healthz():
         return {"ok": True}
 
+    from labels import labels_bp
+    app.register_blueprint(labels_bp)
+
     return app
 
 

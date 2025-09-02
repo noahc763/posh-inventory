@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card" style="max-width: 900px; margin:0 auto;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h2 style="margin:0;">Print Labels</h2>
+    <div style="display:flex;gap:8px;">
+      <button class="btn outline" onclick="window.print()">🖨️ Print</button>
+      <a class="btn outline" href="{{ url_for('dashboard') }}">Back</a>
+    </div>
+  </div>
+  <div class="card-body">
+    <p class="muted small">
+      Sheet targets Avery 5160 (3×10). Use **Letter**, 100% scale, no header/footer.
+    </p>
+
+    <div class="labels-grid">
+      {% for it in items %}
+      <div class="label">
+        {% if include_title %}
+        <div class="label-title">{{ it.title }}</div>
+        {% endif %}
+        {% if include_price and it.listed_price %}
+        <div class="label-price">${{ '%.2f'|format(it.listed_price) }}</div>
+        {% endif %}
+        <img
+          src="{{ url_for('labels.item_barcode_png', item_id=it.id) }}"
+          alt="barcode {{ it.id }}"
+          class="label-barcode"
+        />
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<style>
+/* Printable grid approximating Avery 5160 (3 columns × 10 rows) */
+@page { size: Letter; margin: 0.5in 0.1875in; } /* top/bottom 0.5", sides 3/16" */
+@media print {
+  body { background: white; }
+  .card, .card-header { box-shadow: none !important; }
+  .btn, .card-header { display: none !important; }
+}
+
+.labels-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 2.625in);   /* label width */
+  grid-auto-rows: 1in;                         /* label height */
+  gap: 0.0in 0.125in;                          /* vertical 0, horizontal 1/8" */
+  justify-content: start;
+}
+
+/* Each label cell */
+.label {
+  box-sizing: border-box;
+  padding: 0.06in 0.06in 0.02in 0.06in;  /* small internal padding */
+  display: flex; flex-direction: column; justify-content: center;
+  border: 1px dashed transparent;        /* toggle to visualize layout */
+}
+
+.label-title {
+  font-size: 10pt; line-height: 1.1; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.label-price {
+  font-size: 9pt; opacity: .8; margin-top: 1px;
+}
+
+.label-barcode {
+  width: 100%;
+  height: auto;
+  image-rendering: crisp-edges;
+  margin-top: 2px;
+}
+</style>
+{% endblock %}
