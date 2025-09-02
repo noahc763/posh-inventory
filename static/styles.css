@@ -402,4 +402,62 @@ form[action*="login"] input {
   }
 }
 
+/* === Low-glare table styling (dashboard) === */
+.table-wrap {
+  background: #eef2f7 !important;         /* soft slate tint behind table */
+  border: 1px solid #d5dbe5 !important;
+  border-radius: 12px;
+  overflow: hidden;                        /* rounds the header edge */
+}
 
+.table {
+  width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background: transparent !important;
+  color: #0f172a;                          /* dark readable text */
+}
+
+/* Header */
+.table thead th {
+  background: #e2e8f0 !important;         /* slate-200, not white */
+  color: #0f172a !important;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+
+/* Body cells */
+.table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb !important;  /* subtle row dividers */
+  background: transparent !important;
+}
+
+/* Gentle hover, no glare */
+.table tbody tr:hover td {
+  background: #e5e7eb !important;          /* slate-200-ish */
+}
+
+/* Empty-state block already toned down earlier; keep consistent */
+.table tbody tr.empty-row td {
+  background: #eef2f7 !important;
+  color: #334155 !important;
+  border: 1px solid #d5dbe5 !important;
+}
+
+/* Dark mode parity */
+@media (prefers-color-scheme: dark){
+  .table-wrap {
+    background: #0b1220 !important;
+    border-color: #1f2937 !important;
+  }
+  .table { color: #e5e7eb; }
+  .table thead th {
+    background: #0f172a !important;
+    color: #e5e7eb !important;
+    border-bottom-color: #1f2937 !important;
+  }
+  .table tbody td { border-bottom-color: #1f2937 !important; }
+  .table tbody tr:hover td { background: #0a0f1a !important; }
+}
