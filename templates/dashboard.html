@@ -64,6 +64,8 @@
             <td class="right" style="white-space:nowrap;">
               <a class="btn outline" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
               <a class="btn outline" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
+              <a class="btn outline" href="{{ url_for('labels.item_barcode_png', item_id=it.id) }}" target="_blank" rel="noopener">Barcode</a>
+              <a class="btn outline" href="{{ url_for('labels.labels_print') }}?ids={{ it.id }}&title=0" target="_blank" rel="noopener">Label</a>
             </td>
           </tr>
           {% else %}
