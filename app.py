@@ -157,7 +157,7 @@ def create_app():
                 purchase_price=as_decimal("purchase_price"),
                 listed_price=as_decimal("listing_price"),
                 sold_price=as_decimal("sold_price"),
-                sold_date=as_datetime("sold_date"),
+                purchase_date=as_datetime("purchase_date"),
                 condition=(request.form.get("condition") or None),
                 notes=(request.form.get("notes") or None),
             )
