@@ -7,4 +7,5 @@ python-dotenv
 Flask-Migrate
 alembic
 psycopg2-binary
-python-barcode[images] pillow
+python-barcode[images]
+Pillow
