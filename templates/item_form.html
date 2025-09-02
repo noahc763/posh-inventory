@@ -2,12 +2,13 @@
 {% block content %}
 <section class="card" style="max-width: 760px; margin: 0 auto;">
   <div class="card-header">
-    <h2>New Item{% if category %} in {{ category.name }}{% endif %}</h2>
+    <h2>New Item</h2>
   </div>
 
   <div class="card-body">
     <form action="{{ url_for('items_new') }}" method="post" enctype="multipart/form-data" class="grid-form" style="display:grid; gap:12px;">
 
+      <!-- SINGLE category section (required in-form) -->
       <label class="field">
         <span>Category *</span>
         <select name="category_id" required>
@@ -17,60 +18,6 @@
           {% endfor %}
         </select>
       </label>
-
-      <!-- templates/item_form.html (top of the form) -->
-<label class="field">
-  <span>Category (optional)</span>
-  <div style="display:grid; gap:8px;">
-    <select id="category_id" name="category_id">
-      <option value="" {% if not category %}selected{% endif %}>— No category yet —</option>
-      {% for c in categories %}
-        <option value="{{ c.id }}" {% if category and category.id == c.id %}selected{% endif %}>{{ c.name }}</option>
-      {% endfor %}
-    </select>
-
-    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-      <input id="newCatName" type="text" placeholder="New category name" class="input" style="max-width:260px;">
-      <button id="createCatBtn" class="btn outline" type="button">+ Create category</button>
-    </div>
-  </div>
-</label>
-
-<script>
-  // Inline category creation (uses /api/categories)
-  const createBtn = document.getElementById('createCatBtn');
-  const nameInput = document.getElementById('newCatName');
-  const selectEl  = document.getElementById('category_id');
-
-  createBtn?.addEventListener('click', async () => {
-    const name = (nameInput.value || '').trim();
-    if (!name) { alert('Enter a category name'); return; }
-    try {
-      const resp = await fetch('{{ url_for("categories.api_create_category") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      });
-      const data = await resp.json();
-      if (!data.ok) { alert(data.error || 'Could not create category'); return; }
-
-      // add to select and select it
-      let exists = false;
-      for (const opt of selectEl.options) if (opt.value == String(data.id)) exists = true;
-      if (!exists) {
-        const opt = document.createElement('option');
-        opt.value = data.id;
-        opt.textContent = data.name;
-        selectEl.appendChild(opt);
-      }
-      selectEl.value = String(data.id);
-      nameInput.value = '';
-    } catch (e) {
-      alert('Failed to create category: ' + e.message);
-    }
-  });
-</script>
-
 
       <label class="field">
         <span>Title *</span>
