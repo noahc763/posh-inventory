@@ -461,3 +461,80 @@ form[action*="login"] input {
   .table tbody td { border-bottom-color: #1f2937 !important; }
   .table tbody tr:hover td { background: #0a0f1a !important; }
 }
+
+/* ==== Dashboard table: darker, low-glare (hard override) ==== */
+.card .table-wrap, .table-wrap {
+  background: #dbe2ea !important;            /* darker than before */
+  border: 1px solid #b9c3cf !important;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background: transparent !important;
+  color: #0f172a;                              /* dark readable text */
+}
+
+/* Header: medium slate */
+.table thead th {
+  background: #cbd5e1 !important;             /* slate-300 */
+  color: #0f172a !important;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 1px solid #b9c3cf !important;
+}
+
+/* Body rows: tinted by default (no white) */
+.table tbody td {
+  background: #e3e9f1 !important;             /* row bg */
+  color: #0f172a !important;
+  padding: 10px 12px;
+  border-bottom: 1px solid #c7d0db !important;
+}
+
+/* Zebra for extra contrast */
+.table tbody tr:nth-child(even) td {
+  background: #dbe2ea !important;
+}
+
+/* Gentle hover */
+.table tbody tr:hover td {
+  background: #cfd7e2 !important;
+}
+
+/* Links/buttons inside table stay readable */
+.table a, .table .btn.outline {
+  color: #1f2937 !important;
+}
+
+/* Empty state stays subdued */
+.table tbody tr.empty-row td {
+  background: #dbe2ea !important;
+  color: #334155 !important;
+  border: 1px solid #b9c3cf !important;
+}
+
+/* Dark mode parity */
+@media (prefers-color-scheme: dark){
+  .card .table-wrap, .table-wrap {
+    background: #0e1623 !important;
+    border-color: #253044 !important;
+  }
+  .table { color: #e5e7eb !important; }
+  .table thead th {
+    background: #0f172a !important;
+    color: #e5e7eb !important;
+    border-bottom-color: #253044 !important;
+  }
+  .table tbody td {
+    background: #101827 !important;
+    border-bottom-color: #223049 !important;
+    color: #e5e7eb !important;
+  }
+  .table tbody tr:nth-child(even) td { background: #0b1320 !important; }
+  .table tbody tr:hover td { background: #0a111d !important; }
+}
+
