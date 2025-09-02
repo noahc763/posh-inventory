@@ -8,15 +8,23 @@
   <div class="card-body">
     <form action="{{ url_for('items_new') }}" method="post" enctype="multipart/form-data" class="grid-form" style="display:grid; gap:12px;">
 
-      <!-- SINGLE category section (required in-form) -->
+      <!-- ONE category area: choose existing OR create inline -->
       <label class="field">
         <span>Category *</span>
-        <select name="category_id" required>
-          <option value="" {% if not category %}selected{% endif %}>— Select —</option>
-          {% for c in categories %}
-            <option value="{{ c.id }}" {% if category and category.id == c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
+        <div style="display:grid; gap:10px;">
+          <select id="category_id" name="category_id" required>
+            <option value="" {% if not category %}selected{% endif %}>— Select —</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}" {% if category and category.id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input id="newCatName" type="text" class="input" placeholder="New category name" style="max-width:260px;">
+            <button id="createCatBtn" class="btn outline" type="button">+ Create category</button>
+            <span class="muted small" id="createCatStatus" aria-live="polite"></span>
+          </div>
+        </div>
       </label>
 
       <label class="field">
@@ -108,31 +116,72 @@
 </section>
 
 <script>
+  // --- Inline category creation ---
+  const createBtn = document.getElementById('createCatBtn');
+  const nameInput = document.getElementById('newCatName');
+  const selectEl  = document.getElementById('category_id');
+  const statusEl  = document.getElementById('createCatStatus');
+
+  async function createCategory() {
+    const name = (nameInput.value || '').trim();
+    if (!name) { alert('Enter a category name'); nameInput.focus(); return; }
+
+    createBtn.disabled = true;
+    statusEl.textContent = 'Creating…';
+
+    try {
+      const resp = await fetch('{{ url_for("categories.api_create_category") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        throw new Error(data.error || ('HTTP ' + resp.status));
+      }
+
+      // add to select if not present
+      const id = String(data.id);
+      let present = false;
+      for (const opt of selectEl.options) { if (opt.value === id) { present = true; break; } }
+      if (!present) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = data.name;
+        selectEl.appendChild(opt);
+      }
+      selectEl.value = id;
+      nameInput.value = '';
+      statusEl.textContent = data.created ? 'Category created.' : 'Category already existed.';
+    } catch (e) {
+      alert('Could not create category: ' + e.message);
+      statusEl.textContent = 'Failed.';
+    } finally {
+      createBtn.disabled = false;
+      setTimeout(() => statusEl.textContent = '', 2000);
+    }
+  }
+
+  createBtn?.addEventListener('click', createCategory);
+  nameInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); createCategory(); }
+  });
+
+  // --- Fee/profit preview ---
   const purchaseEl = document.getElementById('purchase_price');
   const listEl = document.getElementById('listing_price');
   const feeEl = document.getElementById('fee');
   const profitEl = document.getElementById('profit');
 
-  function asNum(el) {
-    const v = parseFloat((el?.value || '').replace(/[^\d.]/g, ''));
-    return isNaN(v) ? 0 : v;
-  }
-
-  function poshmarkFee(listing) {
-    if (listing <= 0) return 0;
-    // Poshmark fee: $2.95 for items < $15, else 20%
-    return listing < 15 ? 2.95 : listing * 0.20;
-  }
-
-  function recalc() {
+  function asNum(el){ const v = parseFloat((el?.value || '').replace(/[^\d.]/g,'')); return isNaN(v)?0:v; }
+  function poshmarkFee(listing){ if(listing<=0) return 0; return listing < 15 ? 2.95 : listing * 0.20; }
+  function recalc(){
     const purchase = asNum(purchaseEl);
     const listing = asNum(listEl);
     const fee = poshmarkFee(listing);
     feeEl.value = fee ? fee.toFixed(2) : '';
-    const profit = listing - fee - purchase;
-    profitEl.value = (listing ? profit.toFixed(2) : '');
+    profitEl.value = listing ? (listing - fee - purchase).toFixed(2) : '';
   }
-
   purchaseEl?.addEventListener('input', recalc);
   listEl?.addEventListener('input', recalc);
   window.addEventListener('DOMContentLoaded', recalc);
