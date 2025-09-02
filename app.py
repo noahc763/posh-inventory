@@ -4,6 +4,7 @@ from decimal import Decimal
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_login import LoginManager, login_required, current_user
+from flask_migrate import Migrate
 
 from config import Config
 from models import db, Item, Category, User
@@ -22,9 +23,7 @@ def create_app():
 
     # --- DB init ---
     db.init_app(app)
-    with app.app_context():
-        if os.environ.get("RUN_DB_CREATE_ALL") == "1":
-            db.create_all()
+    Migrate(app, db)
 
     # --- Auth ---
     login_manager = LoginManager(app)
