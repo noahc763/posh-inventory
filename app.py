@@ -146,24 +146,48 @@ def create_app():
                 except Exception:
                     return None
 
-            item = Item(
-                user_id=current_user.id,
-                category_id=(category.id if category else None),  # ← may be None
-                title=title,
-                barcode=(request.form.get("barcode") or None),
-                size=(request.form.get("size") or None),
-                color=(request.form.get("color") or None),
-                purchase_price=as_decimal("purchase_price"),
-                listed_price=as_decimal("listing_price"),
-                sold_price=as_decimal("sold_price"),
-                purchase_date=as_datetime("purchase_date"),
-                condition=(request.form.get("condition") or None),
-                notes=(request.form.get("notes") or None),
-            )
-            db.session.add(item)
-            db.session.commit()
-            flash("Item added.", "success")
-            return redirect(url_for("item_detail", item_id=item.id))
+         
+
+        item = Item(
+            user_id=current_user.id,
+            category_id=category.id,
+            barcode=(request.form.get("barcode") or None),
+            size=(request.form.get("size") or None),
+            color=(request.form.get("color") or None),
+            condition=(request.form.get("condition") or None),
+            notes=(request.form.get("notes") or None),
+        )
+
+        # title/name
+        if hasattr(Item, "title"):
+            item.title = (request.form.get("title") or request.form.get("name") or "").strip()
+        else:
+            item.name = (request.form.get("title") or request.form.get("name") or "").strip()
+
+        # prices
+        item.purchase_price = as_decimal("purchase_price")
+        if hasattr(Item, "listing_price"):
+            item.listing_price = as_decimal("listing_price")
+        elif hasattr(Item, "list_price"):
+            item.list_price = as_decimal("listing_price")
+        elif hasattr(Item, "price"):
+            item.price = as_decimal("listing_price")
+
+        # sold price
+        if hasattr(Item, "sold_price"):
+            item.sold_price = as_decimal("sold_price")
+
+        # dates: prefer purchase_date if your model has it, else fall back to sold_date
+        if hasattr(Item, "purchase_date"):
+            item.purchase_date = as_datetime("purchase_date")
+        elif hasattr(Item, "sold_date"):
+            item.sold_date = as_datetime("purchase_date")  # reuse the same input field
+
+        db.session.add(item)
+        db.session.commit()
+        flash("Item added.", "success")
+        return redirect(url_for("item_detail", item_id=item.id))
+
 
         return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
 
