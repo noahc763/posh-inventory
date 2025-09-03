@@ -108,88 +108,97 @@ def create_app():
         return redirect(url_for("items_new"), code=301)
 
     # app.py (inside create_app())
-    @app.route("/items/new", methods=["GET", "POST"])
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
+    @app.route("/items/new", methods=["GET", "POST"])
     @login_required
-    def items_new(category_id=None):
+    def items_new():
+        # Prefill from querystring (e.g., scanner)
         prefill = {"barcode": request.args.get("barcode", "")}
 
+        # Dropdown list
         categories = (Category.query
                     .filter_by(user_id=current_user.id)
                     .order_by(Category.name.asc())
                     .all())
 
-        cat_id = (category_id
-                or request.args.get("category_id", type=int)
+        # Selected category can come from URL ?category_id=, or POST form
+        cat_id = (request.args.get("category_id", type=int)
                 or request.form.get("category_id", type=int))
         category = (Category.query
                     .filter_by(id=cat_id, user_id=current_user.id)
                     .first()) if cat_id else None
 
+        def as_decimal(field):
+            raw = (request.form.get(field) or "").strip()
+            try:
+                return Decimal(raw) if raw else None
+            except Exception:
+                return None
+
+        def as_datetime(field):
+            raw = (request.form.get(field) or "").strip()
+            try:
+                return datetime.fromisoformat(raw) if raw else None
+            except Exception:
+                return None
+
         if request.method == "POST":
             title = (request.form.get("title") or request.form.get("name") or "").strip()
             if not title:
                 flash("Title is required.", "error")
-                return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
+                return render_template("item_form.html",
+                                    categories=categories, category=category, prefill=prefill)
 
-            def as_decimal(field):
-                raw = (request.form.get(field) or "").strip()
-                try:
-                    return Decimal(raw) if raw else None
-                except Exception:
-                    return None
+            if not category:
+                flash("Please select a category.", "error")
+                return render_template("item_form.html",
+                                    categories=categories, category=None, prefill=prefill)
 
-            def as_datetime(field):
-                raw = (request.form.get(field) or "").strip()
-                try:
-                    return datetime.fromisoformat(raw) if raw else None
-                except Exception:
-                    return None
+            # Build item ONLY after validation
+            item = Item(
+                user_id=current_user.id,
+                category_id=category.id,
+                barcode=(request.form.get("barcode") or None),
+                size=(request.form.get("size") or None),
+                color=(request.form.get("color") or None),
+                condition=(request.form.get("condition") or None),
+                notes=(request.form.get("notes") or None),
+            )
 
-         
+            # title/name compatibility
+            if hasattr(Item, "title"):
+                item.title = title
+            else:
+                item.name = title
 
-        item = Item(
-            user_id=current_user.id,
-            category_id=category.id,
-            barcode=(request.form.get("barcode") or None),
-            size=(request.form.get("size") or None),
-            color=(request.form.get("color") or None),
-            condition=(request.form.get("condition") or None),
-            notes=(request.form.get("notes") or None),
-        )
+            # prices
+            item.purchase_price = as_decimal("purchase_price")
+            if hasattr(Item, "listing_price"):
+                item.listing_price = as_decimal("listing_price")
+            elif hasattr(Item, "list_price"):
+                item.list_price = as_decimal("listing_price")
+            elif hasattr(Item, "price"):
+                item.price = as_decimal("listing_price")
 
-        # title/name
-        if hasattr(Item, "title"):
-            item.title = (request.form.get("title") or request.form.get("name") or "").strip()
-        else:
-            item.name = (request.form.get("title") or request.form.get("name") or "").strip()
+            # sold price (if exists)
+            if hasattr(Item, "sold_price"):
+                item.sold_price = as_decimal("sold_price")
 
-        # prices
-        item.purchase_price = as_decimal("purchase_price")
-        if hasattr(Item, "listing_price"):
-            item.listing_price = as_decimal("listing_price")
-        elif hasattr(Item, "list_price"):
-            item.list_price = as_decimal("listing_price")
-        elif hasattr(Item, "price"):
-            item.price = as_decimal("listing_price")
+            # dates: prefer purchase_date if your model has it
+            if hasattr(Item, "purchase_date"):
+                item.purchase_date = as_datetime("purchase_date")
+            elif hasattr(Item, "sold_date"):
+                item.sold_date = as_datetime("purchase_date")  # reuse same input
 
-        # sold price
-        if hasattr(Item, "sold_price"):
-            item.sold_price = as_decimal("sold_price")
+            db.session.add(item)
+            db.session.commit()
+            flash("Item added.", "success")
+            return redirect(url_for("item_detail", item_id=item.id))
 
-        # dates: prefer purchase_date if your model has it, else fall back to sold_date
-        if hasattr(Item, "purchase_date"):
-            item.purchase_date = as_datetime("purchase_date")
-        elif hasattr(Item, "sold_date"):
-            item.sold_date = as_datetime("purchase_date")  # reuse the same input field
+        # GET → just render the form (category may be None)
+        return render_template("item_form.html",
+                            categories=categories, category=category, prefill=prefill)
 
-        db.session.add(item)
-        db.session.commit()
-        flash("Item added.", "success")
-        return redirect(url_for("item_detail", item_id=item.id))
-
-
-        return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
 
     # Health check
     @app.route("/healthz")

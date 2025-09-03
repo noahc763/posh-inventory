@@ -48,7 +48,7 @@ class Item(db.Model):
     purchase_price = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     purchase_date = db.Column(db.Date)
 
-    list_price = db.Column(db.Numeric(10, 2))
+    listing_price_price = db.Column(db.Numeric(10, 2))
     photo_path = db.Column(db.String(255))
 
     sold_price = db.Column(db.Numeric(10, 2))
