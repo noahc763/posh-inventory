@@ -196,8 +196,7 @@ def create_app():
             return redirect(url_for("item_detail", item_id=item.id))
 
         # GET → just render the form (category may be None)
-        return render_template("item_form.html",
-                            categories=categories, category=category, prefill=prefill)
+        return render_template("item_form.html",categories=categories, category=category, prefill=prefill)
 
 
     # Health check
