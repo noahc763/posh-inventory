@@ -1,93 +1,135 @@
 {% extends "base.html" %}
 {% block content %}
+
 <section class="card" style="max-width: 900px; margin: 0 auto;">
-  <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-    <h2 style="margin:0;">{{ item.title }}</h2>
-    <div style="display:flex; gap:8px;">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div>
+      <h2 style="margin:0;">
+        {{ item.title or item.name or "Item #" ~ item.id }}
+      </h2>
+      <div class="muted small">
+        {% if item.category %}Category: {{ item.category.name }} · {% endif %}
+        Created {{ item.created_at or "—" }}{% if item.updated_at %} · Updated {{ item.updated_at }}{% endif %}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      {% if 'items.edit_item' in current_app.view_functions %}
+      <a class="btn outline" href="{{ url_for('items.edit_item', item_id=item.id) }}">Edit</a>
+      {% endif %}
+      <a class="btn outline" href="{{ url_for('labels.item_barcode_png', item_id=item.id) }}" target="_blank" rel="noopener">Barcode</a>
+      <a class="btn outline" href="{{ url_for('labels.labels_print') }}?ids={{ item.id }}" target="_blank" rel="noopener">Label</a>
       <a class="btn" href="{{ url_for('dashboard') }}">Back</a>
-      <a class="btn" href="{{ url_for('scan') }}">Scan Another</a>
     </div>
   </div>
 
-  {% macro money(v) -%}
-    {%- if v is not none -%}
-      ${{ '{:,.2f}'.format(v) }}
-    {%- else -%}
-      —
-    {%- endif -%}
-  {%- endmacro %}
+  <div class="card-body">
 
-  {% set payout_val = (item.sold_price * Decimal('0.80')) if item.sold_price else None %}
-  {% set profit_val = (item.sold_price * Decimal('0.80') - (item.purchase_price or 0)) if item.sold_price else None %}
-
-  <div class="card-body" style="display:grid; gap:16px;">
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
-      <div>
-        <div class="muted">Barcode</div>
-        <div style="font-weight:600;">{{ item.barcode or '—' }}</div>
+    <!-- Summary grid -->
+    <div class="grid" style="display:grid;grid-template-columns: 1fr 1fr;gap:14px;">
+      <div class="field">
+        <div class="label">Brand</div>
+        <div class="value">{{ item.brand or "—" }}</div>
       </div>
-      <div>
-        <div class="muted">Category</div>
-        <div style="font-weight:600;">{{ item.category.name if item.category else '—' }}</div>
-      </div>
-    </div>
 
-    <hr>
-
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
-      <div>
-        <div class="muted">Purchase Price</div>
-        <div style="font-weight:600;">{{ money(item.purchase_price) }}</div>
-      </div>
-      <div>
-        <div class="muted">Purchase Date</div>
-        <div style="font-weight:600;" id="purchaseDateText">
-          {{ item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else '—' }}
+      <div class="field">
+        <div class="label">Barcode</div>
+        <div class="value">
+          {% if item.barcode %}<code>{{ item.barcode }}</code>{% else %}—{% endif %}
         </div>
       </div>
-      <div>
-        <div class="muted">Return Date (30 days)</div>
-        <div style="font-weight:600;" id="returnDateText" data-purchase="{{ item.purchase_date.isoformat() if item.purchase_date else '' }}">—</div>
+
+      <div class="field">
+        <div class="label">Size</div>
+        <div class="value">{{ item.size or "—" }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Color</div>
+        <div class="value">{{ item.color or "—" }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Condition</div>
+        <div class="value">{{ item.condition or "—" }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Notes</div>
+        <div class="value">{{ item.notes or "—" }}</div>
       </div>
     </div>
 
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
-      <div>
-        <div class="muted">List Price</div>
-        <div style="font-weight:600;">{{ money(item.list_price) }}</div>
+    <hr style="border:none;border-top:1px solid #cbd5e1;margin:16px 0;">
+
+    <!-- Pricing / dates -->
+    <div class="grid" style="display:grid;grid-template-columns: repeat(3, 1fr);gap:14px;">
+      <div class="field">
+        <div class="label">Purchase Price</div>
+        <div class="value">
+          {% if item.purchase_price is not none %}${{ '%.2f'|format(item.purchase_price) }}{% else %}—{% endif %}
+        </div>
       </div>
-      <div>
-        <div class="muted">Sold Price</div>
-        <div style="font-weight:600;">{{ money(item.sold_price) }}</div>
+
+      <div class="field">
+        <div class="label">Listing Price</div>
+        <div class="value">
+          {% if item.listing_price is not none %}${{ '%.2f'|format(item.listing_price) }}{% else %}—{% endif %}
+        </div>
       </div>
-      <div>
-        <div class="muted">Payout (after 20% fee)</div>
-        <div style="font-weight:600;">{{ money(payout_val) }}</div>
+
+      <div class="field">
+        <div class="label">Sold Price</div>
+        <div class="value">
+          {% if item.sold_price is not none %}${{ '%.2f'|format(item.sold_price) }}{% else %}—{% endif %}
+        </div>
       </div>
-      <div>
-        <div class="muted">Profit (after 20% fee)</div>
-        <div style="font-weight:600;">{{ money(profit_val) }}</div>
+
+      <div class="field">
+        <div class="label">Purchase Date</div>
+        <div class="value">{{ item.purchase_date or "—" }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Sold Date</div>
+        <div class="value">{{ item.sold_date or "—" }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Breakeven Price</div>
+        <div class="value">
+          {% if item.breakeven_price is defined and item.breakeven_price is not none %}
+            ${{ '%.2f'|format(item.breakeven_price) }}
+          {% elif item.purchase_price is not none %}
+            <!-- fallback calc if you store only purchase_price -->
+            ${{ '%.2f'|format(item.purchase_price) }}
+          {% else %}
+            —
+          {% endif %}
+        </div>
       </div>
     </div>
 
+    {% if item.photo_path %}
+    <hr style="border:none;border-top:1px solid #cbd5e1;margin:16px 0;">
     <div>
-      <div class="muted">Notes</div>
-      <div style="white-space:pre-wrap;">{{ item.notes or '—' }}</div>
+      <div class="label" style="margin-bottom:6px;">Photo</div>
+      <img src="{{ url_for('static', filename=item.photo_path) }}" alt="Photo of {{ item.title or item.name or ('item ' ~ item.id) }}"
+           style="max-width:100%;height:auto;border-radius:10px;border:1px solid #cbd5e1;">
     </div>
+    {% endif %}
+
   </div>
 </section>
 
-<script>
-  // Show Return Date = Purchase Date + 30 days
-  (function() {
-    const el = document.getElementById('returnDateText');
-    if (!el) return;
-    const iso = el.getAttribute('data-purchase');
-    if (!iso) return;
-    const d = new Date(iso + 'T00:00:00');
-    if (isNaN(d)) return;
-    d.setDate(d.getDate() + 30);
-    el.textContent = d.toISOString().slice(0,10);
-  })();
-</script>
+<style>
+/* local tweaks to ensure readability and low glare */
+.field .label { font-size: 12px; color: #475569; margin-bottom: 2px; }
+.field .value { font-size: 15px; color: #0f172a; background: #e3e9f1; padding: 6px 8px; border-radius: 8px; }
+@media (prefers-color-scheme: dark){
+  .field .label { color: #94a3b8; }
+  .field .value { color: #e5e7eb; background: #101827; }
+}
+</style>
+
 {% endblock %}

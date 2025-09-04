@@ -1,93 +1,133 @@
 {% extends "base.html" %}
 {% block content %}
+
 <section class="card">
-  <div class="card-header">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-      <h2 style="margin:0;">Your Items</h2>
-      <div class="actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <a class="btn" href="{{ url_for('items_new') }}">+ Add Item</a>
-        <a class="btn outline" href="{{ url_for('scan') }}">📷 Scan</a>
-      </div>
-    </div>
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    <h2 style="margin:0;">Dashboard</h2>
+
+    <!-- Filters / actions -->
+    <form method="get" action="{{ url_for('dashboard') }}" style="display:flex;gap:8px;align-items:center;">
+      <select name="category" aria-label="Filter by category" class="input">
+        <option value="">All categories</option>
+        {% for c in categories %}
+          <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn outline" type="submit">Filter</button>
+      <a class="btn" href="{{ url_for('items_new') }}">+ Add item</a>
+    </form>
   </div>
 
   <div class="card-body">
-    <form method="get" action="{{ url_for('dashboard') }}" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
-      <label class="field" style="min-width:220px;">
-        <span class="muted">Filter by category</span>
-        <select name="category" class="input" onchange="this.form.submit()">
-          <option value="">All categories</option>
-          {% for c in categories %}
-            <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      {% if selected_cat %}
-        <a class="btn outline" href="{{ url_for('dashboard') }}">Clear</a>
-      {% endif %}
-    </form>
+    <!-- Bulk actions -->
+    <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:10px;">
+      <button id="btnPrintSelected" class="btn outline" type="button">🖨️ Print selected labels</button>
+    </div>
 
     <div class="table-wrap">
       <table class="table">
         <thead>
           <tr>
+            <th style="width:36px;text-align:center;">
+              <input id="chkAll" type="checkbox" aria-label="Select all" />
+            </th>
             <th>Title</th>
-            <th>Barcode</th>
             <th>Category</th>
+            <th>Barcode</th>
             <th>Purchase</th>
+            <th>Listed</th>
             <th>Sold</th>
-            <th class="right"></th>
+            <th class="right">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for it in items %}
-          <tr>
-            <td>
-              <a class="link" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title }}</a>
-            </td>
-            <td>{{ it.barcode or "—" }}</td>
-            <td>{{ it.category.name if it.category else "—" }}</td>
-            <td>
-              {% if it.purchase_price %}
-                ${{ '%.2f'|format(it.purchase_price) }}
-              {% else %}
-                — 
-              {% endif %}
-            </td>
-            <td>
-              {% if it.sold_price %}
-                ${{ '%.2f'|format(it.sold_price) }}
-              {% else %}
-                — 
-              {% endif %}
-            </td>
-            <td class="right" style="white-space:nowrap;">
-              <a class="btn outline" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
-              <a class="btn outline" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
-              <a class="btn outline" href="{{ url_for('labels.item_barcode_png', item_id=it.id) }}" target="_blank" rel="noopener">Barcode</a>
-              <a class="btn outline" href="{{ url_for('labels.labels_print') }}?ids={{ it.id }}&title=0" target="_blank" rel="noopener">Label</a>
+          {% if items|length == 0 %}
+          <tr class="empty-row">
+            <td colspan="8">
+              No items yet. Use <em>+ Add item</em> to create your first one.
             </td>
           </tr>
           {% else %}
-          <tr class="empty-row">
-            <td colspan="6">
-              <div class="empty-note">No items yet.</div>
+          {% for it in items %}
+          <tr>
+            <td style="text-align:center;">
+              <input class="chkItem" type="checkbox" value="{{ it.id }}" aria-label="Select item {{ it.id }}" />
+            </td>
+
+            <td>
+              <a href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
+              {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
+            </td>
+
+            <td>{{ it.category.name if it.category else "—" }}</td>
+
+            <td>
+              {% if it.barcode %}
+                <code>{{ it.barcode }}</code>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if it.purchase_price %}${{ '%.2f'|format(it.purchase_price) }}{% else %}—{% endif %}
+              {% if it.purchase_date %}<div class="muted small">{{ it.purchase_date }}</div>{% endif %}
+            </td>
+
+            <td>
+              {% if it.listing_price %}${{ '%.2f'|format(it.listing_price) }}{% else %}—{% endif %}
+            </td>
+
+            <td>
+              {% if it.sold_price %}${{ '%.2f'|format(it.sold_price) }}{% else %}—{% endif %}
+              {% if it.sold_date %}<div class="muted small">{{ it.sold_date }}</div>{% endif %}
+            </td>
+
+            <td class="right" style="white-space:nowrap;">
+              <a class="btn outline" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
+              {% if 'items.edit_item' in current_app.view_functions %}
+              <a class="btn outline" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
+              {% endif %}
+              <!-- Single-item barcode & label -->
+              <a class="btn outline" href="{{ url_for('labels.item_barcode_png', item_id=it.id) }}" target="_blank" rel="noopener">Barcode</a>
+              <a class="btn outline" href="{{ url_for('labels.labels_print') }}?ids={{ it.id }}" target="_blank" rel="noopener">Label</a>
             </td>
           </tr>
-          <script>
-            document.getElementById('manualAddBtn')?.addEventListener('click', () => {
-              const sel = document.getElementById('manualAddCategory');
-              const cat = sel?.value;
-              const base = `{{ url_for('items_new') }}`;
-              const url = cat ? `${base}?category_id=${encodeURIComponent(cat)}` : base;
-              window.location.assign(url);
-            });
-          </script>
-          
           {% endfor %}
+          {% endif %}
         </tbody>
       </table>
     </div>
   </div>
 </section>
+
+<script>
+(function(){
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  const chkAll = $('#chkAll');
+  const chkItems = () => $$('.chkItem');
+
+  if (chkAll) {
+    chkAll.addEventListener('change', () => {
+      chkItems().forEach(cb => cb.checked = chkAll.checked);
+    });
+  }
+
+  const btn = $('#btnPrintSelected');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
+      if (!ids.length) {
+        alert('Select at least one item to print labels.');
+        return;
+      }
+      const url = "{{ url_for('labels.labels_print') }}" + "?ids=" + ids.join(',');
+      window.open(url, '_blank', 'noopener');
+    });
+  }
+})();
+</script>
+
 {% endblock %}
