@@ -17,7 +17,7 @@ def upgrade():
     op.execute("""
     DO $$
     BEGIN
-        -- Example: only add column if it doesn't exist
+        -- Example: add column if missing
         IF NOT EXISTS (
             SELECT 1
             FROM information_schema.columns
@@ -29,13 +29,13 @@ def upgrade():
             ADD COLUMN sold_price NUMERIC(10,2);
         END IF;
 
-        -- TODO: put your real logic here (updates, merges, etc.)
+        -- TODO: put your real logic here
     END
     $$;
     """)
 
 
 def downgrade():
-    -- Optional: reverse the above if needed
-    -- op.execute("ALTER TABLE public.items DROP COLUMN IF EXISTS sold_price;")
+    # Example reversal (optional):
+    # op.execute("ALTER TABLE public.items DROP COLUMN IF EXISTS sold_price;")
     pass
