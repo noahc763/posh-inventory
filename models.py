@@ -2,7 +2,8 @@ from datetime import datetime
 from decimal import Decimal
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from sqlalchemy import Index
+from sqlalchemy import Index, Numeric
+from sqlalchemy.orm import synonym
 
 from posh import profit_after_fees, break_even_listing_price, payout_after_fees
 
@@ -47,12 +48,11 @@ class Item(db.Model):
     purchase_source = db.Column(db.String(120))
     purchase_price = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     purchase_date = db.Column(db.Date)
-
-    listing_price = db.Column('list_price', db.Numeric(10, 2), nullable=True)
     photo_path = db.Column(db.String(255))
 
-    sold_price = db.Column(db.Numeric(10, 2))
+    sold_price = db.Column(db.Numeric(10, 2), nullable=True)
     sold_date = db.Column(db.Date)
+    listing_price = synonym('sold_price')
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

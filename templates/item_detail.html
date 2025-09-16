@@ -1,135 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-
-<section class="card" style="max-width: 900px; margin: 0 auto;">
-  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-    <div>
-      <h2 style="margin:0;">
-        {{ item.title or item.name or "Item #" ~ item.id }}
-      </h2>
-      <div class="muted small">
-        {% if item.category %}Category: {{ item.category.name }} · {% endif %}
-        Created {{ item.created_at or "—" }}{% if item.updated_at %} · Updated {{ item.updated_at }}{% endif %}
-      </div>
-    </div>
-
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      {% if 'items.edit_item' in current_app.view_functions %}
-      <a class="btn outline" href="{{ url_for('items.edit_item', item_id=item.id) }}">Edit</a>
-      {% endif %}
-      <a class="btn outline" href="{{ url_for('labels.item_barcode_png', item_id=item.id) }}" target="_blank" rel="noopener">Barcode</a>
-      <a class="btn outline" href="{{ url_for('labels.labels_print') }}?ids={{ item.id }}" target="_blank" rel="noopener">Label</a>
-      <a class="btn" href="{{ url_for('dashboard') }}">Back</a>
-    </div>
-  </div>
-
+<section class="card" style="max-width:760px;margin:0 auto;">
+  <div class="card-header"><h2 style="margin:0;">{{ item.title }}</h2></div>
   <div class="card-body">
-
-    <!-- Summary grid -->
-    <div class="grid" style="display:grid;grid-template-columns: 1fr 1fr;gap:14px;">
-      <div class="field">
-        <div class="label">Brand</div>
-        <div class="value">{{ item.brand or "—" }}</div>
-      </div>
-
-      <div class="field">
-        <div class="label">Barcode</div>
-        <div class="value">
-          {% if item.barcode %}<code>{{ item.barcode }}</code>{% else %}—{% endif %}
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="label">Size</div>
-        <div class="value">{{ item.size or "—" }}</div>
-      </div>
-
-      <div class="field">
-        <div class="label">Color</div>
-        <div class="value">{{ item.color or "—" }}</div>
-      </div>
-
-      <div class="field">
-        <div class="label">Condition</div>
-        <div class="value">{{ item.condition or "—" }}</div>
-      </div>
-
-      <div class="field">
-        <div class="label">Notes</div>
-        <div class="value">{{ item.notes or "—" }}</div>
-      </div>
+    <div style="display:grid;gap:8px;">
+      <div><strong>Barcode:</strong> {{ item.barcode or "—" }}</div>
+      <div><strong>Category:</strong> {{ item.category.name if item.category else "—" }}</div>
+      <div><strong>Purchase Price:</strong> ${{ '%.2f'|format(item.purchase_price or 0) }}</div>
+      <div><strong>List Price:</strong> {{ '$%.2f'|format(item.list_price) if item.list_price is not none else '—' }}</div>
+      <div><strong>Sold Price:</strong> {{ '$%.2f'|format(item.sold_price) if item.sold_price is not none else '—' }}</div>
+      <div><strong>Purchase Date:</strong> {{ item.purchase_date or '—' }}</div>
+      <div><strong>Notes:</strong> {{ item.notes or '—' }}</div>
     </div>
 
-    <hr style="border:none;border-top:1px solid #cbd5e1;margin:16px 0;">
-
-    <!-- Pricing / dates -->
-    <div class="grid" style="display:grid;grid-template-columns: repeat(3, 1fr);gap:14px;">
-      <div class="field">
-        <div class="label">Purchase Price</div>
-        <div class="value">
-          {% if item.purchase_price is not none %}${{ '%.2f'|format(item.purchase_price) }}{% else %}—{% endif %}
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="label">Listing Price</div>
-        <div class="value">
-          {% if item.listing_price is not none %}${{ '%.2f'|format(item.listing_price) }}{% else %}—{% endif %}
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="label">Sold Price</div>
-        <div class="value">
-          {% if item.sold_price is not none %}${{ '%.2f'|format(item.sold_price) }}{% else %}—{% endif %}
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="label">Purchase Date</div>
-        <div class="value">{{ item.purchase_date or "—" }}</div>
-      </div>
-
-      <div class="field">
-        <div class="label">Sold Date</div>
-        <div class="value">{{ item.sold_date or "—" }}</div>
-      </div>
-
-      <div class="field">
-        <div class="label">Breakeven Price</div>
-        <div class="value">
-          {% if item.breakeven_price is defined and item.breakeven_price is not none %}
-            ${{ '%.2f'|format(item.breakeven_price) }}
-          {% elif item.purchase_price is not none %}
-            <!-- fallback calc if you store only purchase_price -->
-            ${{ '%.2f'|format(item.purchase_price) }}
-          {% else %}
-            —
-          {% endif %}
-        </div>
-      </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <a class="btn" href="{{ url_for('dashboard') }}">Back</a>
+      <a class="btn" href="{{ url_for('items.edit_item', item_id=item.id) }}">Edit</a>
     </div>
-
-    {% if item.photo_path %}
-    <hr style="border:none;border-top:1px solid #cbd5e1;margin:16px 0;">
-    <div>
-      <div class="label" style="margin-bottom:6px;">Photo</div>
-      <img src="{{ url_for('static', filename=item.photo_path) }}" alt="Photo of {{ item.title or item.name or ('item ' ~ item.id) }}"
-           style="max-width:100%;height:auto;border-radius:10px;border:1px solid #cbd5e1;">
-    </div>
-    {% endif %}
-
   </div>
 </section>
-
-<style>
-/* local tweaks to ensure readability and low glare */
-.field .label { font-size: 12px; color: #475569; margin-bottom: 2px; }
-.field .value { font-size: 15px; color: #0f172a; background: #e3e9f1; padding: 6px 8px; border-radius: 8px; }
-@media (prefers-color-scheme: dark){
-  .field .label { color: #94a3b8; }
-  .field .value { color: #e5e7eb; background: #101827; }
-}
-</style>
-
 {% endblock %}
