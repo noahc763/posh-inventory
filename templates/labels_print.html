@@ -5,25 +5,21 @@
   <title>Barcode Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  {% set _cols = (cols | int if cols is not none else 3) %}
+  {% set _label_w = (preset.label_w if preset and preset.label_w is not none else '2.625in') %}
+  {% set _label_h = (preset.label_h if preset and preset.label_h is not none else '1.0in') %}
+  {% set _gap     = (preset.gap     if preset and preset.gap     is not none else '0.125in') %}
+  {% set _margin  = (preset.margin  if preset and preset.margin  is not none else '0.5in') %}
+
   <style>
     :root{
-      /* Defaults; can be overridden by preset */
-      --label-w: 2.625in;  /* Avery 5160 width */
-      --label-h: 1.0in;    /* Avery 5160 height */
-      --gap:     0.125in;
-      --margin:  0.5in;
-      --cols:    {{ cols }};
+      --label-w: {{ _label_w }};
+      --label-h: {{ _label_h }};
+      --gap:     {{ _gap }};
+      --margin:  {{ _margin }};
+      --cols:    {{ _cols }};
     }
-    {% if preset %}
-    :root{
-      --label-w: {{ preset.label_w }};
-      --label-h: {{ preset.label_h }};
-      --gap:     {{ preset.gap }};
-      --margin:  {{ preset.margin }};
-    }
-    {% endif %}
 
-    /* Screen helpers */
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
     .toolbar{
       display: flex; gap: 8px; align-items: center; padding: 10px;
@@ -51,7 +47,7 @@
       box-sizing: border-box;
       padding: 4px 6px;
       overflow: hidden;
-      border: 1px dashed #ddd; /* visible on screen only */
+      border: 1px dashed #ddd; /* screen only */
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -73,11 +69,10 @@
     }
     .imgwrap img {
       max-width: 100%;
-      max-height: calc(var(--label-h) - 18px);
+      max-height: calc(var(--label-h) - 24px);
       display:block;
     }
 
-    /* Print rules */
     @media print {
       @page { size: auto; margin: 0; }
       body { margin: 0; }
@@ -92,7 +87,7 @@
 <div class="toolbar">
   <button class="btn" onclick="window.print()">🖨️ Print</button>
   <div class="info">
-    Columns: {{ cols }}{% if preset %} · Preset: yes ({{ preset.label_w }} × {{ preset.label_h }}){% endif %}
+    Columns: {{ _cols }}{% if preset %} · Preset: {{ _label_w }} × {{ _label_h }}{% endif %}
   </div>
 </div>
 
@@ -102,12 +97,9 @@
       <div class="label">
         <div class="title">{{ lab.title }}</div>
         <div class="imgwrap">
-          <img src="{{ lab.img }}" alt="QR">
+          <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
         </div>
-        {% if lab.text %}
-          <div class="title" style="font-size:9pt; color:#333;">{{ lab.text }}</div>
-        {% endif %}
-         
+      </div>
     {% endfor %}
   </div>
 </div>
