@@ -133,7 +133,8 @@
       alert('Select at least one item to print labels.');
       return;
     }
-    const url = "{{ url_for('labels.labels_print') }}" + "?ids=" + encodeURIComponent(ids.join(','));
+    const url = `/labels/print?ids=${encodeURIComponent(ids.join(','))}`;
+
     window.open(url, '_blank', 'noopener');
   });
 })();

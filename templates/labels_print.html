@@ -1,77 +1,113 @@
-{% extends "base.html" %}
-{% block content %}
-<section class="card" style="max-width: 900px; margin:0 auto;">
-  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-    <h2 style="margin:0;">Print Labels</h2>
-    <div style="display:flex;gap:8px;">
-      <button class="btn outline" onclick="window.print()">🖨️ Print</button>
-      <a class="btn outline" href="{{ url_for('dashboard') }}">Back</a>
-    </div>
-  </div>
-  <div class="card-body">
-    <p class="muted small">
-      Sheet targets Avery 5160 (3×10). Use **Letter**, 100% scale, no header/footer.
-    </p>
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Barcode Labels</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <div class="labels-grid">
-      {% for it in items %}
+  <style>
+    :root{
+      /* Defaults; can be overridden by preset */
+      --label-w: 2.625in;  /* Avery 5160 width */
+      --label-h: 1.0in;    /* Avery 5160 height */
+      --gap:     0.125in;
+      --margin:  0.5in;
+      --cols:    {{ cols }};
+    }
+    {% if preset %}
+    :root{
+      --label-w: {{ preset.label_w }};
+      --label-h: {{ preset.label_h }};
+      --gap:     {{ preset.gap }};
+      --margin:  {{ preset.margin }};
+    }
+    {% endif %}
+
+    /* Screen helpers */
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
+    .toolbar{
+      display: flex; gap: 8px; align-items: center; padding: 10px;
+      position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; z-index: 1;
+    }
+    .toolbar .btn { padding: 8px 12px; border: 1px solid #ccc; border-radius: 8px; background: #f7f7f7; cursor: pointer; }
+    .info { color: #666; font-size: 0.9rem; }
+
+    .sheet {
+      margin: 12px auto;
+      width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
+      padding: var(--margin);
+      box-sizing: content-box;
+      background: #fff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), var(--label-w));
+      grid-auto-rows: var(--label-h);
+      gap: var(--gap);
+    }
+
+    .label {
+      box-sizing: border-box;
+      padding: 4px 6px;
+      overflow: hidden;
+      border: 1px dashed #ddd; /* visible on screen only */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      page-break-inside: avoid;
+    }
+    .title {
+      font-size: 10pt;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+    .imgwrap {
+      display:flex; align-items:center; justify-content:center;
+      width: 100%;
+    }
+    .imgwrap img {
+      max-width: 100%;
+      max-height: calc(var(--label-h) - 24px);
+      display:block;
+    }
+
+    /* Print rules */
+    @media print {
+      @page { size: auto; margin: 0; }
+      body { margin: 0; }
+      .toolbar { display: none; }
+      .label { border: none; }
+      .sheet { margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn" onclick="window.print()">🖨️ Print</button>
+  <div class="info">
+    Columns: {{ cols }}{% if preset %} · Preset: yes ({{ preset.label_w }} × {{ preset.label_h }}){% endif %}
+  </div>
+</div>
+
+<div class="sheet">
+  <div class="grid">
+    {% for lab in labels %}
       <div class="label">
-        {% if include_title %}
-        <div class="label-title">{{ it.title }}</div>
-        {% endif %}
-        {% if include_price and it.listed_price %}
-        <div class="label-price">${{ '%.2f'|format(it.listed_price) }}</div>
-        {% endif %}
-        <img
-          src="{{ url_for('labels.item_barcode_png', item_id=it.id) }}"
-          alt="barcode {{ it.id }}"
-          class="label-barcode"
-        />
+        <div class="title">{{ lab.title }}</div>
+        <div class="imgwrap">
+          <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
+        </div>
       </div>
-      {% endfor %}
-    </div>
+    {% endfor %}
   </div>
-</section>
+</div>
 
-<style>
-/* Printable grid approximating Avery 5160 (3 columns × 10 rows) */
-@page { size: Letter; margin: 0.5in 0.1875in; } /* top/bottom 0.5", sides 3/16" */
-@media print {
-  body { background: white; }
-  .card, .card-header { box-shadow: none !important; }
-  .btn, .card-header { display: none !important; }
-}
-
-.labels-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 2.625in);   /* label width */
-  grid-auto-rows: 1in;                         /* label height */
-  gap: 0.0in 0.125in;                          /* vertical 0, horizontal 1/8" */
-  justify-content: start;
-}
-
-/* Each label cell */
-.label {
-  box-sizing: border-box;
-  padding: 0.06in 0.06in 0.02in 0.06in;  /* small internal padding */
-  display: flex; flex-direction: column; justify-content: center;
-  border: 1px dashed transparent;        /* toggle to visualize layout */
-}
-
-.label-title {
-  font-size: 10pt; line-height: 1.1; font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-.label-price {
-  font-size: 9pt; opacity: .8; margin-top: 1px;
-}
-
-.label-barcode {
-  width: 100%;
-  height: auto;
-  image-rendering: crisp-edges;
-  margin-top: 2px;
-}
-</style>
-{% endblock %}
+</body>
+</html>
