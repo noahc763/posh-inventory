@@ -73,7 +73,7 @@
     }
     .imgwrap img {
       max-width: 100%;
-      max-height: calc(var(--label-h) - 24px);
+      max-height: calc(var(--label-h) - 18px);
       display:block;
     }
 
@@ -102,9 +102,12 @@
       <div class="label">
         <div class="title">{{ lab.title }}</div>
         <div class="imgwrap">
-          <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
+          <img src="{{ lab.img }}" alt="QR">
         </div>
-      </div>
+        {% if lab.text %}
+          <div class="title" style="font-size:9pt; color:#333;">{{ lab.text }}</div>
+        {% endif %}
+         
     {% endfor %}
   </div>
 </div>

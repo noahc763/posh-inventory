@@ -1,65 +1,52 @@
 # labels.py
-from flask import Blueprint, request, render_template, abort
+from flask import Blueprint, request, render_template, abort, url_for
 from flask_login import login_required, current_user
 from io import BytesIO
 import base64
 
 from models import Item
 
-# python-barcode
-from barcode import Code128, EAN13, EAN8, UPCA
-from barcode.writer import ImageWriter  # -> PNG via Pillow
+# NEW: QR
+import qrcode
+from qrcode.constants import ERROR_CORRECT_M  # decent error correction
 
 labels_bp = Blueprint("labels", __name__, template_folder="templates")
 
 def _png_data_uri(binary: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(binary).decode("ascii")
 
-def _render_barcode_png(value: str, scale: float = 2.0, text: bool = True) -> bytes:
+def _render_qr_png(value: str, box_size: int = 8, border: int = 2) -> bytes:
     """
-    Render a barcode to PNG bytes. Chooses a symbology that fits the value.
+    Render a QR code (PNG).
+    - box_size: pixels per square module (8–10 looks nice for 1–2 inch labels)
+    - border: quiet zone modules (2–4 recommended)
     """
-    value = (value or "").strip()
-
-    # Pick a reasonable symbology based on length/content
-    writer = ImageWriter()
-    writer_options = {
-        "module_width": 0.2,     # bar width in mm (smaller = more compact)
-        "module_height": 15.0,   # bar height in mm
-        "font_size": 10,
-        "text_distance": 1.0,
-        "write_text": bool(text),
-        "quiet_zone": 2.0,
-        "dpi": int(300 * scale), # crisp on print
-    }
-
-    # Try numeric-specific types first; fall back to Code128 (handles alphanum)
-    BarcodeClass = Code128
-    if value.isdigit():
-        if len(value) == 8:
-            BarcodeClass = EAN8
-        elif len(value) == 12:
-            BarcodeClass = UPCA
-        elif len(value) == 13:
-            BarcodeClass = EAN13
-
-    code = BarcodeClass(value, writer=writer)
+    qr = qrcode.QRCode(
+        version=None,  # fit to data
+        error_correction=ERROR_CORRECT_M,
+        box_size=box_size,
+        border=border,
+    )
+    qr.add_data(value)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
     buf = BytesIO()
-    code.write(buf, options=writer_options)
+    img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
 @labels_bp.route("/labels/print")
 @login_required
 def labels_print():
     """
-    Render a printable sheet of barcode labels.
+    Printable sheet of QR code labels.
 
     Query params:
-      - ids: comma-separated item IDs, e.g. ?ids=1,2,5
+      - ids: comma-separated item IDs, e.g. ?ids=1,2,5 (required)
       - copies: number of copies per item (default 1)
-      - cols: number of columns on the sheet (default 3, good for Avery 5160)
-      - show_text: '1' to show human text under barcode (default 1)
+      - cols: number of columns on the sheet (default 3)
       - size: preset (optional) one of: 'avery5160', 'avery5167', '2x1', '1.5x1'
+      - content: 'item' (default) to encode the barcode/raw id, or 'url' to encode the item detail URL
+      - show_text: '1' to show tiny human text under the QR (default 1)
     """
     ids_param = (request.args.get("ids") or "").strip()
     if not ids_param:
@@ -70,30 +57,40 @@ def labels_print():
     except Exception:
         abort(400, "Bad ids")
 
-    copies = max(1, min(100, int(request.args.get("copies", 1))))
-    cols = max(1, min(6, int(request.args.get("cols", 3))))
+    copies    = max(1, min(100, int(request.args.get("copies", 1))))
+    cols      = max(1, min(6,   int(request.args.get("cols", 3))))
+    size      = (request.args.get("size") or "").lower()
+    content   = (request.args.get("content") or "item").lower()
     show_text = request.args.get("show_text", "1") == "1"
-    size = (request.args.get("size") or "").lower()
 
-    # Fetch only the current user’s items
+    # Current user’s items only
     items = (
         Item.query
             .filter(Item.user_id == current_user.id, Item.id.in_(item_ids))
             .all()
     )
-    # Build label data (repeat per copies)
+
     labels = []
     for it in items:
-        value = it.barcode or str(it.id)
-        png = _render_barcode_png(value, scale=2.0, text=show_text)
+        # What do we encode in the QR?
+        if content == "url":
+            # Absolute URL to item detail
+            value = url_for("item_detail", item_id=it.id, _external=True)
+            text_line = value
+        else:
+            # Raw identifier for inventory scanners
+            value = (it.barcode or str(it.id)).strip()
+            text_line = value
+
+        png = _render_qr_png(value, box_size=8, border=2)
         data_uri = _png_data_uri(png)
+
         labels.extend([{
-            "title": it.title or "Untitled",
-            "barcode": value,
-            "img": data_uri,
+            "title":   it.title or "Untitled",
+            "text":    text_line if show_text else "",
+            "img":     data_uri,
         }] * copies)
 
-    # Presets for common sheets (CSS variables in template)
     presets = {
         "avery5160": {"label_w": "2.625in", "label_h": "1.0in", "gap": "0.125in", "margin": "0.5in"},
         "avery5167": {"label_w": "1.75in",  "label_h": "0.5in", "gap": "0.125in", "margin": "0.5in"},
@@ -107,4 +104,5 @@ def labels_print():
         labels=labels,
         cols=cols,
         preset=preset,
+        is_qr=True  # if you want to branch in template later
     )

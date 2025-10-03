@@ -9,3 +9,4 @@ alembic
 psycopg2-binary
 python-barcode[images]
 Pillow
+qrcode[pil]==7.4.2

@@ -133,7 +133,7 @@
       alert('Select at least one item to print labels.');
       return;
     }
-    const url = `/labels/print?ids=${encodeURIComponent(ids.join(','))}`;
+    const url = `/labels/print?ids=${encodeURIComponent(ids.join(','))}&size=avery5160&cols=3&content=url&copies=1&show_text=1`;
 
     window.open(url, '_blank', 'noopener');
   });
