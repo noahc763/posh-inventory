@@ -52,7 +52,7 @@ class Item(db.Model):
 
     sold_price = db.Column(db.Numeric(10, 2), nullable=True)
     sold_date = db.Column(db.Date)
-    listing_price = synonym('sold_price')
+    list_price = synonym('sold_price')
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
