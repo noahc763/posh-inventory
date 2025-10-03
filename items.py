@@ -1,7 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from sqlalchemy import delete
 
 from models import db, Item, Category
 
@@ -77,6 +78,45 @@ def edit_item(item_id):
 
     # GET: render edit form (if you use it)
     return render_template("add_edit_item.html", item=item, categories=_user_categories())
+
+@items_bp.post("/items/<int:item_id>/delete")
+@login_required
+def delete_item(item_id: int):
+    item = Item.query.filter_by(id=item_id, user_id=current_user.id).first_or_404()
+    db.session.delete(item)
+    db.session.commit()
+
+    # JSON/AJAX support
+    wants_json = request.accept_mimetypes.best == "application/json" or request.is_json
+    if wants_json:
+        return jsonify({"ok": True}), 200
+
+    flash("Item deleted.", "success")
+    return redirect(url_for("dashboard"))
+
+
+@items_bp.post("/items/bulk_delete")
+@login_required
+def bulk_delete_items():
+    ids_raw = (request.form.get("ids") or "").strip()
+    if not ids_raw:
+        return redirect(url_for("dashboard"))
+
+    try:
+        id_list = [int(x) for x in ids_raw.split(",") if x.strip()]
+    except Exception:
+        flash("Invalid selection.", "error")
+        return redirect(url_for("dashboard"))
+
+    if not id_list:
+        return redirect(url_for("dashboard"))
+
+    # Only delete the current user's items
+    Item.query.filter(Item.user_id == current_user.id, Item.id.in_(id_list)).delete(synchronize_session=False)
+    db.session.commit()
+
+    flash(f"Deleted {len(id_list)} item(s).", "success")
+    return redirect(url_for("dashboard"))
 
 @items_bp.route("/items/by_barcode/<barcode>")
 @login_required
