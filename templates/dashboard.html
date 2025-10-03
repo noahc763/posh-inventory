@@ -2,11 +2,11 @@
 {% block content %}
 
 <section class="card">
-  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
     <h2 style="margin:0;">Dashboard</h2>
 
     <!-- Filters / actions -->
-    <form method="get" action="{{ url_for('dashboard') }}" style="display:flex;gap:8px;align-items:center;">
+    <form method="get" action="{{ url_for('dashboard') }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <select name="category" aria-label="Filter by category" class="input">
         <option value="">All categories</option>
         {% for c in categories %}
@@ -14,7 +14,17 @@
         {% endfor %}
       </select>
       <button class="btn outline" type="submit">Filter</button>
-      <a class="btn" href="{{ url_for('items_new') }}">+ Add item</a>
+
+      <!-- Manual Add (no barcode): choose category, then go -->
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="manualAddCategory" class="input" aria-label="Choose category to add to" style="min-width:200px;">
+          <option value="" {% if not selected_cat %}selected{% endif %} disabled>Select category…</option>
+          {% for c in categories %}
+            <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn" type="button" id="manualAddBtn">+ Add item</button>
+      </div>
     </form>
   </div>
 
@@ -70,27 +80,22 @@
             </td>
 
             <td>
-              {% if it.purchase_price %}${{ '%.2f'|format(it.purchase_price) }}{% else %}—{% endif %}
+              {% if it.purchase_price is not none %}${{ '%.2f'|format(it.purchase_price) }}{% else %}—{% endif %}
               {% if it.purchase_date %}<div class="muted small">{{ it.purchase_date }}</div>{% endif %}
             </td>
 
             <td>
-              {% if it.listing_price %}${{ '%.2f'|format(it.listing_price) }}{% else %}—{% endif %}
+              {% if it.list_price is not none %}${{ '%.2f'|format(it.list_price) }}{% else %}—{% endif %}
             </td>
 
             <td>
-              {% if it.sold_price %}${{ '%.2f'|format(it.sold_price) }}{% else %}—{% endif %}
+              {% if it.sold_price is not none %}${{ '%.2f'|format(it.sold_price) }}{% else %}—{% endif %}
               {% if it.sold_date %}<div class="muted small">{{ it.sold_date }}</div>{% endif %}
             </td>
 
-            <td class="right" style="white-space:nowrap;">
-              <a class="btn outline" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
-              {% if 'items.edit_item' in current_app.view_functions %}
-              <a class="btn outline" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
-              {% endif %}
-              <!-- Single-item barcode & label -->
-              <a class="btn outline" href="{{ url_for('labels.item_barcode_png', item_id=it.id) }}" target="_blank" rel="noopener">Barcode</a>
-              <a class="btn outline" href="{{ url_for('labels.labels_print') }}?ids={{ it.id }}" target="_blank" rel="noopener">Label</a>
+            <td style="padding:8px 10px;text-align:right;white-space:nowrap;">
+              <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
+              <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
             </td>
           </tr>
           {% endfor %}
@@ -103,30 +108,34 @@
 
 <script>
 (function(){
-  const $ = (s, r=document) => r.querySelector(s);
+  const $  = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
+  // Manual Add: go to the shortcut route that redirects to canonical path
+  $('#manualAddBtn')?.addEventListener('click', () => {
+    const sel = $('#manualAddCategory');
+    const cat = sel?.value;
+    if (!cat) { alert('Pick a category first.'); return; }
+    window.location.assign(`/items/new?category_id=${encodeURIComponent(cat)}`);
+  });
+
+  // Bulk select
   const chkAll = $('#chkAll');
   const chkItems = () => $$('.chkItem');
+  chkAll?.addEventListener('change', () => {
+    chkItems().forEach(cb => cb.checked = chkAll.checked);
+  });
 
-  if (chkAll) {
-    chkAll.addEventListener('change', () => {
-      chkItems().forEach(cb => cb.checked = chkAll.checked);
-    });
-  }
-
-  const btn = $('#btnPrintSelected');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
-      if (!ids.length) {
-        alert('Select at least one item to print labels.');
-        return;
-      }
-      const url = "{{ url_for('labels.labels_print') }}" + "?ids=" + ids.join(',');
-      window.open(url, '_blank', 'noopener');
-    });
-  }
+  // Labels: open a printable page (assumes you serve /labels/print?ids=...)
+  $('#btnPrintSelected')?.addEventListener('click', () => {
+    const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
+    if (!ids.length) {
+      alert('Select at least one item to print labels.');
+      return;
+    }
+    const url = "{{ url_for('labels.labels_print') }}" + "?ids=" + encodeURIComponent(ids.join(','));
+    window.open(url, '_blank', 'noopener');
+  });
 })();
 </script>
 
