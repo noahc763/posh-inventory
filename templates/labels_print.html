@@ -6,28 +6,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
-    :root{
-      --label-w: {{ _label_w }};  /* 40mm */
-      --label-h: {{ _label_h }};  /* 30mm */
-      --gap:     {{ _gap }};
-      --margin:  {{ _margin }};
-      --cols:    {{ _cols }};
+    :root {
+      --label-w: {{ label_w }};
+      --label-h: {{ label_h }};
+      --gap:     {{ gap }};
+      --margin:  {{ margin }};
+      --cols:    {{ cols }};
     }
 
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#fff; }
-    .toolbar{
-      display:flex; gap:8px; align-items:center; padding:10px;
-      position: sticky; top:0; background:#fff; border-bottom:1px solid #eee; z-index:1;
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+      background: #fff;
     }
-    .toolbar .btn { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#f7f7f7; cursor:pointer; }
-    .info { color:#666; font-size:0.9rem; }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      z-index: 1;
+    }
+    .toolbar .btn {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #f7f7f7;
+      cursor: pointer;
+    }
+    .info {
+      color: #666;
+      font-size: 0.9rem;
+    }
 
     .sheet {
       margin: 12px auto;
-      width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
+      width: calc((var(--label-w) * var(--cols)) +
+                  (var(--gap) * (var(--cols) - 1)) +
+                  (var(--margin) * 2));
       padding: var(--margin);
-      background: #fff;
       box-sizing: content-box;
+      background: #fff;
     }
 
     .grid {
@@ -39,29 +62,30 @@
 
     .label {
       box-sizing: border-box;
-      padding: 2mm;
-      overflow: hidden;
-      border: 1px dashed #ddd; /* screen only */
+      width: var(--label-w);
+      height: var(--label-h);
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 2mm;
+      border: 1px dashed #ddd; /* show borders on screen */
       page-break-inside: avoid;
     }
 
     .imgwrap {
       width: 100%;
       height: 100%;
-      display:flex;
-      align-items:center;   /* centers vertically */
-      justify-content:center; /* centers horizontally */
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .imgwrap img {
+      display: block;
       max-width: 100%;
       max-height: 100%;
-      object-fit: contain;   /* keep aspect; digits remain visible */
-      display:block;
     }
 
+    /* Print rules */
     @media print {
       @page { size: auto; margin: 0; }
       body { margin: 0; }
@@ -75,7 +99,9 @@
 
 <div class="toolbar">
   <button class="btn" onclick="window.print()">🖨️ Print</button>
-  <div class="info">40×30 mm · DPI: {{ _dpi }} · Columns: {{ _cols }}</div>
+  <div class="info">
+    Columns: {{ cols }} · Size: {{ label_w }} × {{ label_h }} at {{ dpi }} DPI
+  </div>
 </div>
 
 <div class="sheet">

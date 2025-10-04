@@ -12,78 +12,81 @@ from barcode.writer import ImageWriter
 
 labels_bp = Blueprint("labels", __name__)
 
+def _normalize_code(code: str) -> str:
+    return "".join(ch for ch in (code or "").strip() if ch.isalnum())
+
 def _choose_symbology(code: str) -> Tuple[str, str]:
     """
-    Choose UPC-A for 12-digit numeric, EAN13 for 13-digit numeric, else Code128.
-    Returns (symbology_name_for_python-barcode, normalized_code).
+    Prefer UPC-A for 12-digit numeric, EAN-13 for 13-digit numeric, else Code128.
+    Return (symbology, normalized_code).
     """
-    s = "".join(ch for ch in (code or "").strip() if ch.isalnum())
+    s = _normalize_code(code)
     if s.isdigit() and len(s) == 12:
-        return ("upc", s)       # UPC-A (12 digits)
+        # UPC-A: many printers/data sets use 12 with check already present.
+        # python-barcode accepts 11 or 12; if it rejects, we'll fallback.
+        return ("upc", s)
     if s.isdigit() and len(s) == 13:
-        return ("ean13", s)     # EAN-13
-    return ("code128", s)       # fallback handles mixed length/alpha
+        return ("ean13", s)
+    return ("code128", s)
 
 def _barcode_png_data_url(code: str, dpi: int = 300, write_text: bool = True) -> str:
     """
-    Generate a high-quality PNG barcode as a data: URL, tuned for 40×30 mm labels.
-    We let python-barcode render at the requested DPI, with sensible mm-based sizes.
+    Generate a crisp PNG barcode as a data URL. Tuned for 40×30 mm labels.
     """
     sym, normalized = _choose_symbology(code)
     writer = ImageWriter()
-
-    # For 40×30 mm: bars ~18–20 mm tall leaves room for HRT (digits) and quiet zones.
-    # Units for module_width/height/quiet_zone/text_distance are millimeters.
-    writer_options = {
-        "module_width": 0.20,      # mm per narrow module (tweak if you want denser bars)
-        "module_height": 18.0,     # mm bar height (not counting human-readable text)
-        "quiet_zone": 2.0,         # mm whitespace on left/right
-        "font_size": 10,           # HRT text below bars
-        "text_distance": 1.0,      # mm gap between bars and digits
+    options = {
+        # ~0.20 mm per module gives good density for 203–300 DPI label printers
+        "module_width": 0.20,
+        "module_height": 18.0,   # bar height (mm), leaves room for HRT inside the image
+        "quiet_zone": 2.0,       # mm
+        "font_size": 10,         # human-readable text
+        "text_distance": 1.0,    # mm gap between bars and digits
         "write_text": bool(write_text),
-        "dpi": dpi,                # <-- true device DPI (203 or 300 are common)
+        "dpi": dpi,
         "background": "white",
         "foreground": "black",
     }
 
-    # Render into memory
+    # Render into memory, with safe fallback to Code128 on validation errors
     bio = BytesIO()
-    bc = bc_get(sym, normalized, writer=writer)
-    bc.write(bio, options=writer_options)
-    png = bio.getvalue()
+    try:
+        bc = bc_get(sym, normalized, writer=writer)
+        bc.write(bio, options=options)
+    except Exception:
+        # Fallback if, e.g., UPC/EAN length/check digit validation fails
+        bio = BytesIO()
+        bc = bc_get("code128", normalized, writer=writer)
+        bc.write(bio, options=options)
 
+    png = bio.getvalue()
     b64 = base64.b64encode(png).decode("ascii")
     return f"data:image/png;base64,{b64}"
 
 def _labels_for_items(items: List[Item], dpi: int) -> List[dict]:
     """
-    Build label payloads.
-    We print only the barcode image (with human-readable digits inside the image).
+    Build label payloads; one dict per label.
+    We embed only the PNG (with digits rendered by python-barcode).
     """
-    out = []
+    out: List[dict] = []
     for it in items:
-        code = it.barcode or ""
+        code = (it.barcode or "").strip()
         if not code:
-            # skip items with no barcode (or you can render a placeholder)
             continue
         img = _barcode_png_data_url(code, dpi=dpi, write_text=True)
-        out.append({
-            "barcode": code,
-            "img": img,
-        })
+        out.append({"barcode": code, "img": img})
     return out
 
 @labels_bp.route("/labels/print")
 @login_required
 def labels_print():
     """
-    Print labels for the selected items.
+    Printable labels (40×30 mm by default).
     Query params:
-        ids   = comma-separated item ids   (required)
-        dpi   = target printer DPI          (default 300; use 203 for many thermal printers)
-        cols  = number of columns           (default 1 for roll printers)
-        copies= copies per item             (default 1)
-    The template is fixed to 40×30 mm label geometry.
+      ids    = comma-separated item IDs (required)
+      dpi    = printer DPI (203 or 300 typical; default 300)
+      cols   = columns (1 for roll printers; default 1)
+      copies = copies per item (default 1)
     """
     ids_raw = (request.args.get("ids") or "").strip()
     if not ids_raw:
@@ -93,7 +96,7 @@ def labels_print():
     except Exception:
         abort(400, "Invalid ids")
 
-    # Only current user's items
+    # Only items owned by current user
     items = (
         Item.query
         .filter(Item.user_id == current_user.id, Item.id.in_(ids))
@@ -109,7 +112,7 @@ def labels_print():
     except Exception:
         dpi = 300
     try:
-        cols = int(request.args.get("cols") or 1)  # roll printers: 1 column
+        cols = int(request.args.get("cols") or 1)
     except Exception:
         cols = 1
     try:
@@ -118,16 +121,15 @@ def labels_print():
         copies = 1
 
     labels = _labels_for_items(items, dpi=dpi)
-    # replicate copies
-    labels = [lab for lab in labels for _ in range(copies)]
+    labels = [lab for lab in labels for _ in range(copies)]  # replicate copies
 
     return render_template(
         "labels_print.html",
         labels=labels,
-        _cols=cols,            # CSS variable
-        _label_w="40mm",
-        _label_h="30mm",
-        _gap="2mm",
-        _margin="4mm",
-        _dpi=dpi,
+        cols=cols,             # <-- match template variable names
+        label_w="40mm",
+        label_h="30mm",
+        gap="2mm",
+        margin="4mm",
+        dpi=dpi,
     )
