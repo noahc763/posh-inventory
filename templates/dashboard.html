@@ -15,7 +15,7 @@
       </select>
       <button class="btn outline" type="submit">Filter</button>
 
-      <!-- Manual Add (no barcode): choose category, then go -->
+      <!-- Manual Add (no barcode) -->
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="manualAddCategory" class="input" aria-label="Choose category to add to" style="min-width:200px;">
           <option value="" {% if not selected_cat %}selected{% endif %} disabled>Select category…</option>
@@ -32,20 +32,13 @@
     <!-- Bulk actions -->
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:10px;">
       <button id="btnPrintSelected" class="btn outline" type="button">🖨️ Print selected labels</button>
-    </div>
 
-    <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:10px;">
-      <button id="btnPrintSelected" class="btn outline" type="button">🖨️ Print selected labels</button>
-    
       <!-- Bulk Delete -->
-      <form id="bulkDeleteForm" method="post" action="{{ url_for('items.bulk_delete_items') }}">
+      <form id="bulkDeleteForm" method="post" action="{{ url_for('items.bulk_delete_items') }}" style="display:inline">
         <input type="hidden" name="ids" id="bulkDeleteIds">
-        <button class="btn danger" type="submit" onclick="return confirm('Delete selected items? This cannot be undone.');">
-          🗑️ Delete selected
-        </button>
+        <button class="btn danger" type="submit">🗑️ Delete selected</button>
       </form>
     </div>
-    
 
     <div class="table-wrap">
       <table class="table">
@@ -110,11 +103,13 @@
               <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
               <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
 
-              <form method="post" action="{{ url_for('items.delete_item', item_id=it.id) }}"
-                  style="display:inline"
-                  onsubmit="return confirm('Delete this item permanently?');">
-              <button class="btn danger" type="submit">Delete</button>
-            </form>
+              <form method="post"
+                    action="{{ url_for('items.bulk_delete_items') }}"
+                    style="display:inline"
+                    onsubmit="return confirm('Delete this item permanently?');">
+                <input type="hidden" name="ids" value="{{ it.id }}">
+                <button class="btn danger" type="submit">Delete</button>
+              </form>
             </td>
           </tr>
           {% endfor %}
@@ -130,7 +125,7 @@
   const $  = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-  // Manual Add: go to the shortcut route that redirects to canonical path
+  // Manual Add
   $('#manualAddBtn')?.addEventListener('click', () => {
     const sel = $('#manualAddCategory');
     const cat = sel?.value;
@@ -145,35 +140,31 @@
     chkItems().forEach(cb => cb.checked = chkAll.checked);
   });
 
-  // Labels: open a printable page (assumes you serve /labels/print?ids=...)
+  // Print selected
   $('#btnPrintSelected')?.addEventListener('click', () => {
     const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
     if (!ids.length) {
       alert('Select at least one item to print labels.');
       return;
     }
-    const url = `/labels/print?ids=${encodeURIComponent(ids.join(','))}&size=avery5160&cols=3&content=url&copies=1&show_text=1`;
-
+    const url = `/labels/print?ids=${encodeURIComponent(ids.join(','))}&size=avery5160&cols=3&copies=1`;
     window.open(url, '_blank', 'noopener');
-  // Bulk Delete (new)
-  $('#btnDeleteSelected')?.addEventListener('click', () => {
+  });
+
+  // Bulk Delete: fill ids before submit
+  const bulkForm = $('#bulkDeleteForm');
+  bulkForm?.addEventListener('submit', (e) => {
     const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
-    if (!ids.length) { alert('Select at least one item to delete.'); return; }
-    if (!confirm(`Delete ${ids.length} item(s) permanently? This cannot be undone.`)) return;
-
-    // Create and submit a simple POST form
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/items/bulk-delete';
-
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'ids';
-    input.value = ids.join(',');
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-    form.submit();
+    if (!ids.length) {
+      e.preventDefault();
+      alert('Select at least one item to delete.');
+      return;
+    }
+    if (!confirm(`Delete ${ids.length} item(s) permanently? This cannot be undone.`)) {
+      e.preventDefault();
+      return;
+    }
+    $('#bulkDeleteIds').value = ids.join(',');
   });
 })();
 </script>
