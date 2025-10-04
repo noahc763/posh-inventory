@@ -6,16 +6,20 @@
   </div>
 
   <div class="card-body">
-    <form action="{{ url_for('items_new') }}" method="post" enctype="multipart/form-data" class="grid-form" style="display:grid; gap:12px;">
+    <form action="{{ url_for('items.add_item') }}"
+          method="post"
+          enctype="multipart/form-data"
+          class="grid-form"
+          style="display:grid; gap:12px;">
 
-      <!-- ONE category area: choose existing OR create inline -->
+      <!-- Category -->
       <label class="field">
         <span>Category *</span>
         <div style="display:grid; gap:10px;">
           <select id="category_id" name="category_id" required>
-            <option value="" {% if not category %}selected{% endif %}>— Select —</option>
+            <option value="" selected>— Select —</option>
             {% for c in categories %}
-              <option value="{{ c.id }}" {% if category and category.id == c.id %}selected{% endif %}>{{ c.name }}</option>
+              <option value="{{ c.id }}">{{ c.name }}</option>
             {% endfor %}
           </select>
 
@@ -27,28 +31,19 @@
         </div>
       </label>
 
+      <!-- Title -->
       <label class="field">
         <span>Title *</span>
         <input name="title" placeholder="e.g., Nike Air Max 270" required />
       </label>
 
+      <!-- Barcode -->
       <label class="field">
         <span>Barcode (UPC/EAN)</span>
         <input name="barcode" value="{{ prefill.barcode|default('') }}" placeholder="Scan or type" />
       </label>
 
-      <div class="grid-2">
-        <label class="field">
-          <span>Size</span>
-          <input name="size" placeholder="e.g., M, 8.5, 32x30" />
-        </label>
-
-        <label class="field">
-          <span>Color</span>
-          <input name="color" placeholder="e.g., Black / White" />
-        </label>
-      </div>
-
+      <!-- Prices -->
       <div class="grid-2">
         <label class="field">
           <span>Purchase Price *</span>
@@ -56,11 +51,25 @@
         </label>
 
         <label class="field">
-          <span>Listing Price</span>
-          <input id="listing_price" name="listing_price" type="number" step="0.01" min="0" placeholder="0.00" />
+          <span>List Price</span>
+          <input id="list_price" name="list_price" type="number" step="0.01" min="0" placeholder="0.00" />
         </label>
       </div>
 
+      <!-- Sold fields -->
+      <div class="grid-2">
+        <label class="field">
+          <span>Sold Price</span>
+          <input name="sold_price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" />
+        </label>
+
+        <label class="field">
+          <span>Sold Date</span>
+          <input name="sold_date" type="date" />
+        </label>
+      </div>
+
+      <!-- Fee / Profit preview -->
       <div class="grid-2">
         <label class="field">
           <span>Estimated Poshmark Fee (auto)</span>
@@ -73,13 +82,14 @@
         </label>
       </div>
 
-      <!-- New: Breakeven (minimum viable list price) -->
+      <!-- Breakeven -->
       <label class="field">
         <span>Breakeven Price (auto)</span>
         <input id="breakeven_price" type="number" step="0.01" placeholder="0.00" readonly />
         <span class="small muted">Lowest list price to cover purchase + Poshmark fee.</span>
       </label>
 
+      <!-- Dates / Source -->
       <div class="grid-2">
         <label class="field">
           <span>Purchase Date</span>
@@ -87,23 +97,18 @@
         </label>
 
         <label class="field">
-          <span>Condition</span>
-          <select name="condition">
-            <option value="" selected>— Select —</option>
-            <option value="New with tags">New with tags</option>
-            <option value="New without tags">New without tags</option>
-            <option value="Excellent used">Excellent used</option>
-            <option value="Good used">Good used</option>
-            <option value="Fair">Fair</option>
-          </select>
+          <span>Purchase Source</span>
+          <input name="purchase_source" placeholder="Where did you buy it?" />
         </label>
       </div>
 
+      <!-- Notes -->
       <label class="field">
         <span>Notes</span>
         <textarea name="notes" rows="3" placeholder="Details, flaws, source, etc."></textarea>
       </label>
 
+      <!-- Photo -->
       <label class="field">
         <span>Photo</span>
         <input name="photo" type="file" accept="image/*" />
@@ -168,7 +173,7 @@
 
   // --- Numbers & fee/profit/breakeven preview ---
   const purchaseEl = document.getElementById('purchase_price');
-  const listEl = document.getElementById('listing_price');
+  const listEl = document.getElementById('list_price');
   const feeEl = document.getElementById('fee');
   const profitEl = document.getElementById('profit');
   const breakEl = document.getElementById('breakeven_price');
@@ -192,13 +197,11 @@
     const purchase = asNum(purchaseEl);
     const listing = asNum(listEl);
 
-    // Update fee & profit from current listing price
     const fee = poshmarkFee(listing);
     feeEl.value = listing ? fee.toFixed(2) : '';
     const profit = listing ? (listing - fee - purchase) : 0;
     profitEl.value = listing ? profit.toFixed(2) : '';
 
-    // Update breakeven based on purchase price only
     breakEl.value = purchase ? breakeven(purchase).toFixed(2) : '';
   }
 

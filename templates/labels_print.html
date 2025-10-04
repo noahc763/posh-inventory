@@ -5,69 +5,63 @@
   <title>Barcode Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  {% set _cols = (cols | int if cols is not none else 3) %}
-  {% set _label_w = (preset.label_w if preset and preset.label_w is not none else '2.625in') %}
-  {% set _label_h = (preset.label_h if preset and preset.label_h is not none else '1.0in') %}
-  {% set _gap     = (preset.gap     if preset and preset.gap     is not none else '0.125in') %}
-  {% set _margin  = (preset.margin  if preset and preset.margin  is not none else '0.5in') %}
-
   <style>
     :root{
-      --label-w: {{ _label_w }};
-      --label-h: {{ _label_h }};
+      --label-w: {{ _label_w }};  /* 40mm */
+      --label-h: {{ _label_h }};  /* 30mm */
       --gap:     {{ _gap }};
       --margin:  {{ _margin }};
       --cols:    {{ _cols }};
     }
-  
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
-  
-    .sheet { /* … unchanged … */ }
-    .grid  { /* … unchanged … */ }
-  
+
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#fff; }
+    .toolbar{
+      display:flex; gap:8px; align-items:center; padding:10px;
+      position: sticky; top:0; background:#fff; border-bottom:1px solid #eee; z-index:1;
+    }
+    .toolbar .btn { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#f7f7f7; cursor:pointer; }
+    .info { color:#666; font-size:0.9rem; }
+
+    .sheet {
+      margin: 12px auto;
+      width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
+      padding: var(--margin);
+      background: #fff;
+      box-sizing: content-box;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), var(--label-w));
+      grid-auto-rows: var(--label-h);
+      gap: var(--gap);
+    }
+
     .label {
       box-sizing: border-box;
-      padding: 4px 6px;
+      padding: 2mm;
       overflow: hidden;
       border: 1px dashed #ddd; /* screen only */
       display: flex;
-      flex-direction: column;      /* 🔑 title is a fixed row, image fills the rest */
-      align-items: center;
-      justify-content: stretch;    /* let inner flex decide spacing */
-      gap: 4px;
-      page-break-inside: avoid;
-    }
-  
-    .title {
-      flex: 0 0 auto;              /* 🔑 reserve space for title */
-      font-size: 9.5pt;
-      line-height: 1.15;
-      text-align: center;
-      width: 100%;
-      display: -webkit-box;        /* clamp to two lines */
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: normal;         /* allow wrapping */
-    }
-  
-    .imgwrap {
-      flex: 1 1 auto;              /* 🔑 barcode gets the remaining height */
-      min-height: 0;               /* allow it to shrink if needed */
-      width: 100%;
-      display: flex;
       align-items: center;
       justify-content: center;
+      page-break-inside: avoid;
     }
-  
+
+    .imgwrap {
+      width: 100%;
+      height: 100%;
+      display:flex;
+      align-items:center;   /* centers vertically */
+      justify-content:center; /* centers horizontally */
+    }
     .imgwrap img {
       max-width: 100%;
-      max-height: 100%;            /* 🔑 scale to available space below title */
-      object-fit: contain;
-      display: block;
+      max-height: 100%;
+      object-fit: contain;   /* keep aspect; digits remain visible */
+      display:block;
     }
-  
+
     @media print {
       @page { size: auto; margin: 0; }
       body { margin: 0; }
@@ -76,22 +70,18 @@
       .sheet { margin: 0 auto; }
     }
   </style>
-    
 </head>
 <body>
 
 <div class="toolbar">
   <button class="btn" onclick="window.print()">🖨️ Print</button>
-  <div class="info">
-    Columns: {{ _cols }}{% if preset %} · Preset: {{ _label_w }} × {{ _label_h }}{% endif %}
-  </div>
+  <div class="info">40×30 mm · DPI: {{ _dpi }} · Columns: {{ _cols }}</div>
 </div>
 
 <div class="sheet">
   <div class="grid">
     {% for lab in labels %}
       <div class="label">
-        <div class="title">{{ lab.title }}</div>
         <div class="imgwrap">
           <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
         </div>

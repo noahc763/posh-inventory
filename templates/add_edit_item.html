@@ -15,62 +15,82 @@
       style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"
     >
 
-      <!-- Left column -->
+      <!-- Title -->
       <div class="field">
         <label>Title</label>
         <input name="title" required placeholder="Item title" value="{{ item.title if item else '' }}" />
       </div>
 
+      <!-- Barcode -->
       <div class="field">
-        <label>Barcode</label>
-        <input name="barcode" placeholder="UPC/EAN or your code" value="{{ item.barcode if item else (request.args.get('barcode') or '') }}" />
+        <label>Barcode (UPC/EAN)</label>
+        <input name="barcode" placeholder="e.g., 012345678905"
+               value="{% if item %}{{ item.barcode or '' }}{% else %}{{ (prefill.barcode if prefill else '') or '' }}{% endif %}" />
       </div>
 
+      <!-- Category -->
       <div class="field">
         <label>Category</label>
         <select name="category_id" class="input">
           <option value="">— None —</option>
           {% for c in categories %}
-            <option value="{{ c.id }}" {% if item and item.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            <option value="{{ c.id }}"
+              {% if (item and item.category_id == c.id) or (not item and prefill and prefill.category_id and prefill.category_id|int == c.id) %}
+                selected
+              {% endif %}
+            >{{ c.name }}</option>
           {% endfor %}
         </select>
       </div>
 
+      <!-- Purchase source -->
       <div class="field">
         <label>Purchase source</label>
         <input name="purchase_source" placeholder="Where did you buy it?" value="{{ item.purchase_source if item else '' }}" />
       </div>
 
+      <!-- Purchase price -->
       <div class="field">
         <label>Purchase price</label>
-        <input name="purchase_price" type="number" inputmode="decimal" step="0.01" min="0" value="{{ '%.2f'|format(item.purchase_price) if item and item.purchase_price is not none else '' }}" />
+        <input name="purchase_price" type="number" inputmode="decimal" step="0.01" min="0"
+               value="{{ '%.2f'|format(item.purchase_price) if item and item.purchase_price is not none else '' }}" />
       </div>
 
+      <!-- Purchase date -->
       <div class="field">
         <label>Purchase date</label>
-        <input name="purchase_date" type="date" value="{{ item.purchase_date.strftime('%Y-%m-%d') if item and item.purchase_date else '' }}" />
+        <input name="purchase_date" type="date"
+               value="{{ item.purchase_date.strftime('%Y-%m-%d') if item and item.purchase_date else '' }}" />
       </div>
 
+      <!-- List price -->
       <div class="field">
         <label>List price</label>
-        <input name="list_price" type="number" inputmode="decimal" step="0.01" min="0" value="{{ '%.2f'|format(item.list_price) if item and item.list_price is not none else '' }}" />
+        <input name="list_price" type="number" inputmode="decimal" step="0.01" min="0"
+               value="{{ '%.2f'|format(item.list_price) if item and item.list_price is not none else '' }}" />
       </div>
 
+      <!-- Sold price (now shown for both add & edit) -->
       <div class="field">
         <label>Sold price</label>
-        <input name="sold_price" type="number" inputmode="decimal" step="0.01" min="0" value="{{ '%.2f'|format(item.sold_price) if item and item.sold_price is not none else '' }}" />
+        <input name="sold_price" type="number" inputmode="decimal" step="0.01" min="0"
+               value="{{ '%.2f'|format(item.sold_price) if item and item.sold_price is not none else '' }}" />
       </div>
 
+      <!-- Sold date -->
       <div class="field">
         <label>Sold date</label>
-        <input name="sold_date" type="date" value="{{ item.sold_date.strftime('%Y-%m-%d') if item and item.sold_date else '' }}" />
+        <input name="sold_date" type="date"
+               value="{{ item.sold_date.strftime('%Y-%m-%d') if item and item.sold_date else '' }}" />
       </div>
 
+      <!-- Notes -->
       <div class="field" style="grid-column:1/-1;">
         <label>Notes</label>
         <textarea name="notes" rows="4" placeholder="Optional details…">{{ item.notes if item else '' }}</textarea>
       </div>
 
+      <!-- Photo (optional; safe to keep even if you don't use it yet) -->
       <div class="field" style="grid-column:1/-1;">
         <label>Photo</label>
         <input type="file" name="photo" accept="image/*" />
@@ -79,6 +99,7 @@
         {% endif %}
       </div>
 
+      <!-- Actions -->
       <div style="grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end;">
         <a class="btn outline" href="{{ url_for('item_detail', item_id=item.id) if item else url_for('dashboard') }}">Cancel</a>
         <button class="btn" type="submit">{{ 'Save changes' if item else 'Create item' }}</button>
