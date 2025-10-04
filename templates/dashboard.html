@@ -71,7 +71,7 @@
             </td>
 
             <td>
-              <a href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
+              <a href="{{ url_for('item_detail', item_id=it.id) }}" style="color:white;">{{ it.title or it.name }}</a>
               {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
             </td>
 
