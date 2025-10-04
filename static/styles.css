@@ -1,10 +1,10 @@
-/* ===== Posh Inventory — Professional Theme ===== */
+/* ===== Posh Inventory — Professional Theme (Clean) ===== */
 :root{
   /* brand + neutrals */
   --brand:#2563eb;
-  --brand-ink:#ffffff;
-  --ink:#0f172a;           /* slate-900 */
-  --ink-muted:#475569;     /* slate-600 */
+  --brand-ink:#f1f5f9;   /* softer than pure white */
+  --ink:#0f172a;         /* slate-900 */
+  --ink-muted:#475569;   /* slate-600 */
   --bg:#f6f7fb;
   --surface:#ffffff;
   --border:#e5e7eb;
@@ -22,6 +22,12 @@
   --fs-lg:18px;
   --fs-xl:20px;
   --fs-2xl:28px;
+
+  /* inputs */
+  --input-bg:#ffffff;
+  --input-text:#0f172a;
+  --input-border:#cbd5e1;
+  --input-ph:#64748b;
 }
 
 *{box-sizing:border-box}
@@ -77,58 +83,107 @@ main.container{padding-top:18px}
 /* Buttons */
 .btn{
   display:inline-flex;align-items:center;gap:8px;cursor:pointer;
-  background:var(--brand);color:var(--brand-ink);
+  background:#1d4ed8; /* slightly darker than --brand to reduce glare */
+  color:var(--brand-ink);
   border:1px solid transparent;border-radius:10px;
   padding:10px 14px;font-weight:700;
 }
-.btn:hover{opacity:.95;text-decoration:none}
+.btn:hover{filter:brightness(0.98);text-decoration:none}
 .btn:focus{outline:3px solid var(--focus);outline-offset:2px}
-.btn.outline{background:#fff;color:var(--ink);border-color:var(--border)}
-.btn.outline:hover{background:#f9fafb}
-.btn.danger{background:#ef4444}
+.btn:disabled{opacity:.65;cursor:not-allowed}
+.btn.outline{
+  background:#eef2f7;color:#1f2937;border-color:#cbd5e1;box-shadow:none;
+}
+.btn.outline:hover{background:#e5e7eb}
+.btn.danger{background:#ef4444;color:#fff}
 
 /* Inputs */
-.input, select, input[type="text"], input[type="number"], input[type="date"], input[type="file"], textarea{
+.input, select, input[type="text"], input[type="email"], input[type="password"],
+input[type="number"], input[type="date"], input[type="file"], textarea{
   width:100%;
   padding:10px 12px;
-  border:1px solid var(--border);
+  border:1px solid var(--input-border);
   border-radius:10px;
-  background:#fff;
-  color:var(--ink);
+  background:var(--input-bg);
+  color:var(--input-text);
   font-size:var(--fs-base);
 }
-.input:focus, select:focus, input:focus, textarea:focus{outline:3px solid var(--focus);outline-offset:1px}
+.input:focus, select:focus, input:focus, textarea:focus{
+  outline:3px solid var(--focus);outline-offset:1px;
+  background:#e2e8f0;border-color:var(--focus);
+}
 label.field>span{display:block;margin-bottom:6px;color:var(--ink-muted);font-size:var(--fs-sm)}
+::placeholder{color:var(--input-ph);opacity:1}
+input:-webkit-autofill,
+input:-webkit-autofill:focus{
+  -webkit-text-fill-color:var(--input-text);
+  box-shadow:0 0 0 1000px var(--input-bg) inset;
+  transition:background-color 9999s ease-out 0s;
+}
+input:disabled, select:disabled, textarea:disabled, .input:disabled{
+  background:#eef2f7;color:#94a3b8;border-color:#d0d7e2;
+}
 
-/* Tables */
-.table-wrap{width:100%;overflow:auto}
-.table{width:100%;border-collapse:collapse}
-.table th,.table td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
-.table thead th{font-size:var(--fs-sm);color:var(--ink-muted);text-transform:uppercase;letter-spacing:.4px}
-.table tbody tr:nth-child(odd){background:#fbfcfe}
+/* Tables (Dashboard) */
+.table-wrap{
+  background:#dbe2ea;
+  border:1px solid #b9c3cf;
+  border-radius:12px;
+  overflow:hidden;
+}
+.table{
+  width:100%;
+  border-collapse:separate;border-spacing:0;
+  background:transparent;
+  color:#0f172a;
+}
+.table thead th{
+  background:#cbd5e1; /* slate-300 */
+  color:#0f172a;
+  font-weight:600;
+  padding:10px 12px;
+  border-bottom:1px solid #b9c3cf;
+  text-align:left;
+}
+.table tbody td{
+  padding:10px 12px;
+  border-bottom:1px solid #c7d0db;
+  background:#e3e9f1; /* row bg */
+}
+.table tbody tr:nth-child(even) td{background:#dbe2ea}
+.table tbody tr:hover td{background:#cfd7e2}
 .right{text-align:right}
 
-/* Toasts */
-.toast-stack{display:grid;gap:8px;margin-bottom:16px}
-.toast{
-  padding:10px 12px;border:1px solid var(--border);
-  border-radius:10px;background:#f8fafc;color:var(--ink)
+/* Make ONLY the item title link white (others keep default) */
+.table a.item-title{
+  color:#fff !important;
+  text-decoration:none;
 }
-.toast.success{border-color:#84cc16;background:#f0fdf4}
-.toast.error{border-color:#ef4444;background:#fef2f2}
-.toast.warn{border-color:#f59e0b;background:#fffbeb}
+.table a.item-title:hover{ text-decoration:underline; }
 
-/* Helpers */
-.small{font-size:var(--fs-sm)}
-.muted{color:var(--ink-muted)}
-.link{color:var(--brand);text-decoration:none}
-.link:hover{text-decoration:underline}
+/* Empty state */
+.table tbody tr.empty-row td{
+  background:#dbe2ea;color:#334155;border:1px solid #b9c3cf;
+  border-radius:10px;padding:12px 14px;
+}
+
+/* Grid helper */
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
-/* Scan page specifics */
+/* Toasts (subtle outline) */
+.toast-stack{display:grid;gap:6px;margin-bottom:12px}
+.toast{
+  background:transparent;color:#0f172a;border:1px solid #cbd5e1;
+  border-radius:10px;padding:10px 12px;box-shadow:none;
+}
+.toast.success{border-color:#86efac;color:#166534}
+.toast.error{border-color:#fecaca;color:#7f1d1d}
+.toast.warn{border-color:#fde68a;color:#92400e}
+
+/* Scan page */
 #video{background:#000;border-radius:12px}
 
-/* Dark mode (opt-in via system setting) */
+/* ===== Dark mode ===== */
 @media (prefers-color-scheme: dark){
   :root{
     --ink:#e5e7eb;
@@ -139,402 +194,28 @@ label.field>span{display:block;margin-bottom:6px;color:var(--ink-muted);font-siz
     --brand:#60a5fa;
     --brand-ink:#0b1220;
     --focus:#1d4ed8;
+
+    --input-bg:#0f172a;
+    --input-text:#e5e7eb;
+    --input-border:#334155;
+    --input-ph:#9ca3af;
   }
+
   .nav-link.active{background:#1e293b;border-color:#334155}
-  .table tbody tr:nth-child(odd){background:#0b1220}
-}
 
-/* ===== Softer button whites (keeps WCAG contrast) ===== */
-:root{
-  /* Slightly off-white for text on primary buttons (still AA contrast on #2563eb) */
-  --brand-ink:#f1f5f9; /* was #ffffff */
-}
-
-/* Primary button text is now a soft white */
-.btn{
-  color: var(--brand-ink);
-}
-
-/* Outline buttons: no more pure white slabs */
-.btn.outline{
-  background:#f8fafc;         /* softer than #fff */
-  color:var(--ink);
-  border-color:#dfe3eb;        /* a touch darker to reduce glare */
-}
-.btn.outline:hover{
-  background:#eef2f7;
-}
-
-/* Optional: make primary button a hair darker so the whole chip glows less */
-.btn{
-  background:#1d4ed8;          /* was var(--brand) (#2563eb). Subtle darken for less luminance */
-}
-.btn:hover{
-  opacity:1;                   /* remove the fade so hover doesn’t 'flash' brighter */
-  filter:brightness(0.98);     /* tiny dim on hover */
-}
-
-/* === Softer, low-glare inputs & selects === */
-.input,
-select,
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="number"],
-input[type="date"],
-input[type="file"],
-textarea {
-  background: #f1f5f9;     /* soft slate-100 (not pure white) */
-  color: #0f172a;          /* slate-900 text */
-  border-color: #cbd5e1;   /* slate-300 border for clearer edges */
-}
-
-.input:focus,
-select:focus,
-input:focus,
-textarea:focus {
-  outline: 3px solid #93c5fd;   /* visible but not harsh */
-  outline-offset: 1px;
-  background: #e2e8f0;          /* slightly darker on focus */
-  border-color: #93c5fd;
-}
-
-/* Legible placeholder text */
-::placeholder {
-  color: #64748b; /* slate-500 */
-}
-
-/* Autofill (Safari/Chrome) – remove bright yellow background */
-input:-webkit-autofill,
-input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #0f172a;
-  transition: background-color 9999s ease-out 0s;
-}
-
-/* Disabled fields still readable without glare */
-.input:disabled,
-select:disabled,
-input:disabled,
-textarea:disabled {
-  background: #e5e7eb;   /* slate-200 */
-  color: #94a3b8;        /* slate-400 */
-}
-
-/* Optional: reduce glare on small inline selects (like dashboard filters) */
-select.input,
-select {
-  background-image: none; /* keep native caret; avoids shiny gradients */
-}
-
-/* Dark mode parity */
-@media (prefers-color-scheme: dark){
-  .input,
-  select,
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  input[type="number"],
-  input[type="date"],
-  input[type="file"],
-  textarea {
-    background: #0b1220;    /* deep slate */
-    color: #e5e7eb;
-    border-color: #1f2937;
+  .table-wrap{background:#0e1623;border-color:#253044}
+  .table{color:#e5e7eb}
+  .table thead th{
+    background:#0f172a;color:#e5e7eb;border-bottom-color:#253044;
   }
-  ::placeholder { color: #9ca3af; }
-  .input:focus,
-  select:focus,
-  input:focus,
-  textarea:focus {
-    outline: 3px solid #1d4ed8;
-    background: #0a0f1a;
-    border-color: #1d4ed8;
+  .table tbody td{
+    background:#101827;border-bottom-color:#223049;color:#e5e7eb;
   }
-}
+  .table tbody tr:nth-child(even) td{background:#0b1320}
+  .table tbody tr:hover td{background:#0a111d}
 
-/* ===== FINAL: readable inputs & selects (high-contrast, overrides) ===== */
-:root{
-  --input-bg: #ffffff;      /* crisp, readable background */
-  --input-text: #0f172a;    /* dark text */
-  --input-border: #cbd5e1;  /* subtle but visible border */
-  --input-ph: #64748b;      /* placeholder */
+  .toast{color:#e5e7eb;border-color:#334155}
+  .toast.success{border-color:#14532d;color:#bbf7d0}
+  .toast.error{border-color:#7f1d1d;color:#fecaca}
+  .toast.warn{border-color:#78350f;color:#fde68a}
 }
-
-/* Force text & background on all common fields */
-input, select, textarea, .input {
-  background: var(--input-bg) !important;
-  color: var(--input-text) !important;
-  border: 1px solid var(--input-border) !important;
-}
-
-/* Make sure options are readable in the dropdown list */
-select option {
-  color: var(--input-text) !important;
-  background: var(--input-bg) !important;
-}
-
-/* Placeholder legibility */
-::placeholder {
-  color: var(--input-ph) !important;
-  opacity: 1 !important;
-}
-
-/* Autofill (Safari/Chrome): remove pale/yellow fill and keep dark text */
-input:-webkit-autofill,
-input:-webkit-autofill:focus {
-  -webkit-text-fill-color: var(--input-text) !important;
-  box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
-  transition: background-color 9999s ease-out 0s !important;
-}
-
-/* Disabled fields: still readable, just muted */
-input:disabled, select:disabled, textarea:disabled, .input:disabled {
-  background: #eef2f7 !important;
-  color: #94a3b8 !important;
-  border-color: #d0d7e2 !important;
-}
-
-/* If you use a placeholder option in <select> */
-select:invalid,
-select option[disabled] {
-  color: var(--input-ph) !important;
-}
-
-/* Dark mode parity (only when user’s system is dark) */
-@media (prefers-color-scheme: dark){
-  :root{
-    --input-bg: #0f172a;
-    --input-text: #e5e7eb;
-    --input-border: #334155;
-    --input-ph: #9ca3af;
-  }
-}
-
-/* Safety net for the auth form specifically */
-form[action*="login"] input {
-  background: var(--input-bg) !important;
-  color: var(--input-text) !important;
-}
-
-/* Low-glare empty states */
-.table tbody tr.empty-row { background: transparent !important; }          /* kill zebra on the row */
-.table tbody tr.empty-row td {
-  background: #eef2f7 !important;   /* soft slate, not white */
-  color: #334155 !important;        /* dark slate text */
-  border: 1px solid #d5dbe5;        /* subtle border so it doesn't glow */
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-/* Optional: if you wrap the message in a div */
-.empty-note {
-  background: #eef2f7;
-  color: #334155;
-  border: 1px solid #d5dbe5;
-  border-radius: 10px;
-  padding: 12px 14px;
-  display: inline-block;
-}
-
-/* === Subtle toasts: outline only, no bright background === */
-.toast,
-.toast.message,   /* Flask-Login often uses 'message' */
-.toast.info {
-  background: transparent !important;
-  color: #0f172a !important;        /* dark, readable */
-  border: 1px solid #cbd5e1 !important; /* slate-300 outline */
-  box-shadow: none !important;
-}
-
-/* Variants stay subtle, just tinted borders/text */
-.toast.success { border-color: #86efac !important; color: #166534 !important; } /* green-200 / green-800 */
-.toast.error   { border-color: #fecaca !important; color: #7f1d1d !important; } /* red-200 / red-900 */
-.toast.warn    { border-color: #fde68a !important; color: #92400e !important; } /* amber-200 / amber-900 */
-
-/* Tighten spacing a touch */
-.toast-stack { gap: 6px; margin-bottom: 12px; }
-
-/* Dark mode parity */
-@media (prefers-color-scheme: dark){
-  .toast,
-  .toast.message,
-  .toast.info {
-    background: transparent !important;
-    color: #e5e7eb !important;         /* slate-200 */
-    border-color: #334155 !important;  /* slate-700 */
-  }
-  .toast.success { border-color: #14532d !important; color: #bbf7d0 !important; }
-  .toast.error   { border-color: #7f1d1d !important; color: #fecaca !important; }
-  .toast.warn    { border-color: #78350f !important; color: #fde68a !important; }
-}
-
-/* === Dimmer outline buttons (low-glare) === */
-.btn.outline {
-  background: #eef2f7 !important;   /* softer than white */
-  color: #1f2937 !important;         /* slate-800 text */
-  border-color: #cbd5e1 !important;  /* slate-300 border */
-  box-shadow: none !important;
-}
-.btn.outline:hover {
-  background: #e5e7eb !important;    /* slate-200 */
-  border-color: #c5ceda !important;
-}
-.btn.outline:active {
-  background: #e2e8f0 !important;    /* slate-300-ish */
-}
-
-/* Keep disabled buttons subdued & readable */
-.btn:disabled,
-.btn[disabled] {
-  opacity: .65;
-  cursor: not-allowed;
-}
-
-/* Dark mode parity */
-@media (prefers-color-scheme: dark){
-  .btn.outline {
-    background: #0f172a !important;  /* deep slate */
-    color: #e2e8f0 !important;
-    border-color: #334155 !important;
-  }
-  .btn.outline:hover {
-    background: #0b1220 !important;
-  }
-}
-
-/* === Low-glare table styling (dashboard) === */
-.table-wrap {
-  background: #eef2f7 !important;         /* soft slate tint behind table */
-  border: 1px solid #d5dbe5 !important;
-  border-radius: 12px;
-  overflow: hidden;                        /* rounds the header edge */
-}
-
-.table {
-  width: 100%;
-  border-collapse: separate !important;
-  border-spacing: 0 !important;
-  background: transparent !important;
-  color: #0f172a;                          /* dark readable text */
-}
-
-/* Header */
-.table thead th {
-  background: #e2e8f0 !important;         /* slate-200, not white */
-  color: #0f172a !important;
-  font-weight: 600;
-  padding: 10px 12px;
-  border-bottom: 1px solid #cbd5e1 !important;
-}
-
-/* Body cells */
-.table tbody td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #e5e7eb !important;  /* subtle row dividers */
-  background: transparent !important;
-}
-
-/* Gentle hover, no glare */
-.table tbody tr:hover td {
-  background: #e5e7eb !important;          /* slate-200-ish */
-}
-
-/* Empty-state block already toned down earlier; keep consistent */
-.table tbody tr.empty-row td {
-  background: #eef2f7 !important;
-  color: #334155 !important;
-  border: 1px solid #d5dbe5 !important;
-}
-
-/* Dark mode parity */
-@media (prefers-color-scheme: dark){
-  .table-wrap {
-    background: #0b1220 !important;
-    border-color: #1f2937 !important;
-  }
-  .table { color: #e5e7eb; }
-  .table thead th {
-    background: #0f172a !important;
-    color: #e5e7eb !important;
-    border-bottom-color: #1f2937 !important;
-  }
-  .table tbody td { border-bottom-color: #1f2937 !important; }
-  .table tbody tr:hover td { background: #0a0f1a !important; }
-}
-
-/* ==== Dashboard table: darker, low-glare (hard override) ==== */
-.card .table-wrap, .table-wrap {
-  background: #dbe2ea !important;            /* darker than before */
-  border: 1px solid #b9c3cf !important;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.table {
-  width: 100%;
-  border-collapse: separate !important;
-  border-spacing: 0 !important;
-  background: transparent !important;
-  color: #0f172a;                              /* dark readable text */
-}
-
-/* Header: medium slate */
-.table thead th {
-  background: #cbd5e1 !important;             /* slate-300 */
-  color: #0f172a !important;
-  font-weight: 600;
-  padding: 10px 12px;
-  border-bottom: 1px solid #b9c3cf !important;
-}
-
-/* Body rows: tinted by default (no white) */
-.table tbody td {
-  background: #e3e9f1 !important;             /* row bg */
-  color: #0f172a !important;
-  padding: 10px 12px;
-  border-bottom: 1px solid #c7d0db !important;
-}
-
-/* Zebra for extra contrast */
-.table tbody tr:nth-child(even) td {
-  background: #dbe2ea !important;
-}
-
-/* Gentle hover */
-.table tbody tr:hover td {
-  background: #cfd7e2 !important;
-}
-
-/* Links/buttons inside table stay readable */
-.table a, .table .btn.outline {
-  color: #1f2937 !important;
-}
-
-/* Empty state stays subdued */
-.table tbody tr.empty-row td {
-  background: #dbe2ea !important;
-  color: #334155 !important;
-  border: 1px solid #b9c3cf !important;
-}
-
-/* Dark mode parity */
-@media (prefers-color-scheme: dark){
-  .card .table-wrap, .table-wrap {
-    background: #0e1623 !important;
-    border-color: #253044 !important;
-  }
-  .table { color: #e5e7eb !important; }
-  .table thead th {
-    background: #0f172a !important;
-    color: #e5e7eb !important;
-    border-bottom-color: #253044 !important;
-  }
-  .table tbody td {
-    background: #101827 !important;
-    border-bottom-color: #223049 !important;
-    color: #e5e7eb !important;
-  }
-  .table tbody tr:nth-child(even) td { background: #0b1320 !important; }
-  .table tbody tr:hover td { background: #0a111d !important; }
-}
-
