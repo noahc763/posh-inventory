@@ -31,6 +31,56 @@ def _user_categories():
 
 # ---------- Routes (keep only what’s needed) ----------
 
+@items_bp.route("/items/add", methods=["GET", "POST"])
+@items_bp.route("/items/new", methods=["GET", "POST"])
+@login_required
+def add_item():
+    if request.method == "GET":
+        prefill = {
+            "barcode": request.args.get("barcode", ""),
+            "category_id": request.args.get("category_id", "")
+        }
+        return render_template("add_edit_item.html", item=None, categories=_user_categories(), prefill=prefill)
+
+    # POST create
+    f = request.form
+    title = (f.get("title") or "").strip()
+    if not title:
+        flash("Title is required.", "error")
+        return render_template("add_edit_item.html", item=None, categories=_user_categories(), prefill={"barcode": f.get("barcode","")})
+
+    # Optional category
+    category = None
+    cat_id = f.get("category_id")
+    if cat_id:
+        category = Category.query.filter_by(id=int(cat_id), user_id=current_user.id).first()
+
+    # Optional barcode, unique per user
+    barcode = (f.get("barcode") or "").strip()
+    if barcode:
+        existing = Item.query.filter_by(user_id=current_user.id, barcode=barcode).first()
+        if existing:
+            flash("An item with that barcode already exists.", "info")
+            return redirect(url_for("item_detail", item_id=existing.id))
+
+    item = Item(
+        user_id=current_user.id,
+        category_id=(category.id if category else None),
+        title=title,
+        barcode=barcode or None,
+        purchase_price=_parse_money(f.get("purchase_price")) or Decimal("0.00"),
+        list_price=_parse_money(f.get("list_price")),
+        sold_price=_parse_money(f.get("sold_price")),          # includes sold price at create
+        purchase_date=_parse_date(f.get("purchase_date")),
+        sold_date=_parse_date(f.get("sold_date")),
+        purchase_source=f.get("purchase_source") or None,
+        notes=f.get("notes") or None,
+    )
+    db.session.add(item)
+    db.session.commit()
+    flash("Item added.", "success")
+    return redirect(url_for("item_detail", item_id=item.id))
+
 @items_bp.route("/items/<int:item_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_item(item_id):
