@@ -42,7 +42,7 @@ def _barcode_png_data_url(code: str, dpi: int = 300, write_text: bool = True) ->
         "quiet_zone": 2.0,       # mm
         "font_size": 10,         # human-readable text
         "text_distance": 1.0,    # mm gap between bars and digits
-        "write_text": bool(write_text),
+        "write_text": False
         "dpi": dpi,
         "background": "white",
         "foreground": "black",

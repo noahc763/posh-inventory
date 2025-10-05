@@ -7,91 +7,84 @@
 
   <style>
     :root {
-      --label-w: {{ label_w }};
-      --label-h: {{ label_h }};
-      --gap:     {{ gap }};
-      --margin:  {{ margin }};
-      --cols:    {{ cols }};
+      --label-w: {{ label_w }};   /* e.g., 40mm */
+      --label-h: {{ label_h }};   /* e.g., 30mm */
+      --gap:     {{ gap }};       /* e.g., 2mm */
+      --margin:  {{ margin }};    /* e.g., 4mm */
+      --cols:    {{ cols }};      /* 1 for roll printers */
+      --caption-h: 7mm;           /* reserved space for digits */
     }
 
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      margin: 0;
-      background: #fff;
-    }
+    body { margin:0; background:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 
     .toolbar {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 10px;
-      position: sticky;
-      top: 0;
-      background: #fff;
-      border-bottom: 1px solid #eee;
-      z-index: 1;
+      display:flex; gap:8px; align-items:center; padding:10px;
+      position: sticky; top:0; background:#fff; border-bottom:1px solid #eee; z-index:1;
     }
-    .toolbar .btn {
-      padding: 8px 12px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      background: #f7f7f7;
-      cursor: pointer;
-    }
-    .info {
-      color: #666;
-      font-size: 0.9rem;
-    }
+    .toolbar .btn { padding:8px 12px; border:1px solid #ccc; border-radius:6px; background:#f7f7f7; cursor:pointer; }
+    .info { color:#666; font-size:0.9rem; }
 
     .sheet {
-      margin: 12px auto;
-      width: calc((var(--label-w) * var(--cols)) +
-                  (var(--gap) * (var(--cols) - 1)) +
-                  (var(--margin) * 2));
+      margin:12px auto;
+      width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
       padding: var(--margin);
       box-sizing: content-box;
-      background: #fff;
+      background:#fff;
     }
 
     .grid {
-      display: grid;
+      display:grid;
       grid-template-columns: repeat(var(--cols), var(--label-w));
       grid-auto-rows: var(--label-h);
       gap: var(--gap);
     }
 
     .label {
-      box-sizing: border-box;
       width: var(--label-w);
       height: var(--label-h);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2mm;
-      border: 1px dashed #ddd; /* show borders on screen */
+      box-sizing: border-box;
+      display:flex;
+      flex-direction: column;
+      align-items:center;
+      justify-content:center;
+      padding: 2mm 2mm 2mm;
+      border: 1px dashed #ddd;    /* for on-screen alignment only */
       page-break-inside: avoid;
+      overflow: hidden;
     }
 
     .imgwrap {
       width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      /* Leave room for the code below so bars can’t collide with it */
+      height: calc(var(--label-h) - var(--caption-h));
+      display:flex;
+      align-items:center;
+      justify-content:center;
     }
     .imgwrap img {
-      display: block;
-      max-width: 100%;
-      max-height: 100%;
+      display:block;
+      max-width:100%;
+      max-height:100%;
     }
 
-    /* Print rules */
+    .code {
+      height: var(--caption-h);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width: 100%;
+      font: 10pt/1.1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     @media print {
-      @page { size: auto; margin: 0; }
-      body { margin: 0; }
-      .toolbar { display: none; }
+      @page { size:auto; margin:0; }
+      .toolbar { display:none; }
       .label { border: none; }
-      .sheet { margin: 0 auto; }
+      .sheet { margin:0 auto; }
     }
   </style>
 </head>
@@ -99,9 +92,7 @@
 
 <div class="toolbar">
   <button class="btn" onclick="window.print()">🖨️ Print</button>
-  <div class="info">
-    Columns: {{ cols }} · Size: {{ label_w }} × {{ label_h }} at {{ dpi }} DPI
-  </div>
+  <div class="info">Columns: {{ cols }} · Size: {{ label_w }} × {{ label_h }} at {{ dpi }} DPI</div>
 </div>
 
 <div class="sheet">
@@ -111,6 +102,7 @@
         <div class="imgwrap">
           <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
         </div>
+        <div class="code">{{ lab.barcode }}</div>
       </div>
     {% endfor %}
   </div>
