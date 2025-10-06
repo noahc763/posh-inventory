@@ -22,52 +22,73 @@ def _choose_symbology(code: str) -> Tuple[str, str]:
     """
     s = _normalize_code(code)
     if s.isdigit() and len(s) == 12:
-        # UPC-A: many printers/data sets use 12 with check already present.
-        # python-barcode accepts 11 or 12; if it rejects, we'll fallback.
         return ("upc", s)
     if s.isdigit() and len(s) == 13:
         return ("ean13", s)
     return ("code128", s)
 
-def _barcode_png_data_url(code: str, dpi: int = 300, write_text: bool = True) -> str:
+def _render_barcode(sym: str, payload: str, *, dpi: int, write_text: bool, module_width: float = 0.26) -> bytes:
     """
-    Generate a crisp PNG barcode as a data URL. Tuned for 40×30 mm labels.
+    Render a barcode PNG (bytes) using python-barcode ImageWriter.
+    Sizes tuned for 40×30 mm labels. module_width is in millimeters.
     """
-    sym, normalized = _choose_symbology(code)
     writer = ImageWriter()
     options = {
-        # ~0.20 mm per module gives good density for 203–300 DPI label printers
-        "module_width": 0.26,
-        "module_height": 18.0,   # bar height (mm), leaves room for HRT inside the image
-        "quiet_zone": 2.0,       # mm
-        "font_size": 10,         # human-readable text
-        "text_distance": 1.0,    # mm gap between bars and digits
-        "write_text": True,
-        "dpi": 203,
+        "module_width": module_width,  # mm per narrow bar; tweak to fill width at your DPI
+        "module_height": 18.0,         # mm bar height (area above digits)
+        "quiet_zone": 2.0,             # mm left/right padding
+        "font_size": 10,               # human-readable text size
+        "text_distance": 1.2,          # mm gap between bars and digits (helps avoid overlap)
+        "write_text": bool(write_text),
+        "dpi": int(dpi),
         "background": "white",
         "foreground": "black",
     }
-    
-
-    # Render into memory, with safe fallback to Code128 on validation errors
     bio = BytesIO()
-    try:
-        bc = bc_get(sym, normalized, writer=writer)
-        bc.write(bio, options=options)
-    except Exception:
-        # Fallback if, e.g., UPC/EAN length/check digit validation fails
-        bio = BytesIO()
-        bc = bc_get("code128", normalized, writer=writer)
-        bc.write(bio, options=options)
+    bc = bc_get(sym, payload, writer=writer)
+    bc.write(bio, options=options)
+    return bio.getvalue()
 
-    png = bio.getvalue()
-    b64 = base64.b64encode(png).decode("ascii")
+def _barcode_png_data_url(code: str, dpi: int = 300, write_text: bool = True) -> str:
+    """
+    Generate a crisp PNG barcode as a data URL. Tuned for 40×30 mm labels.
+    Handles UPC 12 vs 11 rules gracefully before falling back to Code128.
+    """
+    sym, normalized = _choose_symbology(code)
+
+    png_bytes: bytes | None = None
+
+    if sym == "upc":
+        # Try with 12 first (some versions accept), then try first 11 (lib computes checksum)
+        try:
+            png_bytes = _render_barcode("upc", normalized, dpi=dpi, write_text=write_text)
+        except Exception:
+            if len(normalized) == 12 and normalized.isdigit():
+                try:
+                    png_bytes = _render_barcode("upc", normalized[:11], dpi=dpi, write_text=write_text)
+                except Exception:
+                    png_bytes = None
+    elif sym == "ean13":
+        try:
+            png_bytes = _render_barcode("ean13", normalized, dpi=dpi, write_text=write_text)
+        except Exception:
+            # Try without last digit to let library compute checksum
+            if len(normalized) == 13 and normalized.isdigit():
+                try:
+                    png_bytes = _render_barcode("ean13", normalized[:12], dpi=dpi, write_text=write_text)
+                except Exception:
+                    png_bytes = None
+
+    # Fallback to Code128 if needed or for arbitrary payloads
+    if png_bytes is None:
+        png_bytes = _render_barcode("code128", normalized, dpi=dpi, write_text=write_text)
+
+    b64 = base64.b64encode(png_bytes).decode("ascii")
     return f"data:image/png;base64,{b64}"
 
 def _labels_for_items(items: List[Item], dpi: int) -> List[dict]:
     """
-    Build label payloads; one dict per label.
-    We embed only the PNG (with digits rendered by python-barcode).
+    Build label payloads; one dict per label. We embed only the PNG (with digits rendered).
     """
     out: List[dict] = []
     for it in items:
@@ -97,7 +118,7 @@ def labels_print():
     except Exception:
         abort(400, "Invalid ids")
 
-    # Only items owned by current user
+    # Only current user's items
     items = (
         Item.query
         .filter(Item.user_id == current_user.id, Item.id.in_(ids))
@@ -122,12 +143,12 @@ def labels_print():
         copies = 1
 
     labels = _labels_for_items(items, dpi=dpi)
-    labels = [lab for lab in labels for _ in range(copies)]  # replicate copies
+    labels = [lab for lab in labels for _ in range(copies)]  # duplicate for copies
 
     return render_template(
         "labels_print.html",
         labels=labels,
-        cols=cols,             # <-- match template variable names
+        cols=cols,
         label_w="40mm",
         label_h="30mm",
         gap="2mm",
