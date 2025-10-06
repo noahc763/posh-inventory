@@ -37,16 +37,16 @@ def _barcode_png_data_url(code: str, dpi: int = 300, write_text: bool = True) ->
     writer = ImageWriter()
     options = {
         # ~0.20 mm per module gives good density for 203–300 DPI label printers
-        "module_width": 0.20,
+        "module_width": 0.26,
         "module_height": 18.0,   # bar height (mm), leaves room for HRT inside the image
         "quiet_zone": 2.0,       # mm
         "font_size": 10,         # human-readable text
         "text_distance": 1.0,    # mm gap between bars and digits
-        "write_text": False,
-        "dpi": dpi,
+        "write_text": True,
+        "dpi": 203,
         "background": "white",
         "foreground": "black",
-    }
+    
 
     # Render into memory, with safe fallback to Code128 on validation errors
     bio = BytesIO()

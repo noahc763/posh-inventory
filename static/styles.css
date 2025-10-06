@@ -169,6 +169,12 @@ input:disabled, select:disabled, textarea:disabled, .input:disabled{
   overflow-x: auto;
 }
 
+.label img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; 
+}
+
 /* Make ONLY the item title link white (others keep default) */
 .table a.item-title{
   color: inherit !important;
