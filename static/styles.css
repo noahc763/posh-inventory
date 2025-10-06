@@ -154,6 +154,21 @@ input:disabled, select:disabled, textarea:disabled, .input:disabled{
 .table tbody tr:hover td{background:#cfd7e2}
 .right{text-align:right}
 
+/* Allow horizontal scrolling for wide tables on small screens */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto; /* enables horizontal scroll */
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+}
+
+.table {
+  min-width: 800px; /* force table wider than small viewpoints so scroll appears */
+}
+
+.card {
+  overflow-x: auto;
+}
+
 /* Make ONLY the item title link white (others keep default) */
 .table a.item-title{
   color: inherit !important;
