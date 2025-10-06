@@ -46,6 +46,7 @@ def _barcode_png_data_url(code: str, dpi: int = 300, write_text: bool = True) ->
         "dpi": 203,
         "background": "white",
         "foreground": "black",
+    }
     
 
     # Render into memory, with safe fallback to Code128 on validation errors
