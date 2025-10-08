@@ -122,7 +122,6 @@
     </form>
   </div>
 </section>
-
 <script>
   // --- Inline category creation ---
   const createBtn = document.getElementById('createCatBtn');
@@ -131,8 +130,8 @@
   const statusEl  = document.getElementById('createCatStatus');
 
   async function createCategory() {
-    const name = (nameInput.value || '').trim();
-    if (!name) { alert('Enter a category name'); nameInput.focus(); return; }
+    const name = (nameInput?.value || '').trim();
+    if (!name) { alert('Enter a category name'); nameInput?.focus(); return; }
 
     createBtn.disabled = true;
     statusEl.textContent = 'Creating…';
@@ -172,57 +171,78 @@
     if (e.key === 'Enter') { e.preventDefault(); createCategory(); }
   });
 
-  // --- Numbers & fee/profit/breakeven preview with auto-fill of List Price ---
+  // --- Fee / Profit / Breakeven (and auto-fill List Price) ---
   const purchaseEl = document.getElementById('purchase_price');
   const listEl     = document.getElementById('list_price');
   const feeEl      = document.getElementById('fee');
   const profitEl   = document.getElementById('profit');
   const breakEl    = document.getElementById('breakeven_price');
 
-  function asNum(el){ const v = parseFloat((el?.value || '').replace(/[^\d.]/g,'')); return isNaN(v)?0:v; }
+  function asNum(el){
+    if (!el) return 0;
+    const raw = (el.value || '').replace(/[^\d.]/g,'');
+    const v = parseFloat(raw);
+    return isNaN(v) ? 0 : v;
+  }
   function ceil2(x){ return Math.ceil(x * 100) / 100; }
 
-  // Poshmark fee rules
-  function poshmarkFee(listPrice){
-    if (listPrice <= 0) return 0;
-    return listPrice < 15 ? 2.95 : listPrice * 0.20;
+  // Poshmark fee: $2.95 if list < $15, else 20%
+  function poshmarkFee(listing){
+    if (listing <= 0) return 0;
+    return listing < 15 ? 2.95 : listing * 0.20;
   }
 
-  // Breakeven using fee rules
+  // Breakeven (same logic as server): min L s.t. L - fee(L) - purchase >= 0
   function breakeven(purchase){
     if (purchase <= 0) return 0;
-    const flatCandidate = purchase + 2.95;   // valid only if < $15
+    const flatCandidate = purchase + 2.95;   // only valid if < 15
     if (flatCandidate < 15) return ceil2(flatCandidate);
     const percentCandidate = purchase / 0.8; // 20% fee regime
     return ceil2(Math.max(15, percentCandidate));
   }
 
-  // Track whether user has edited List Price
-  listEl.dataset.autoFilled = "true";
-  listEl.addEventListener('input', () => { listEl.dataset.autoFilled = "false"; });
+  // Tracks the last auto-set list price so user edits aren't overridden
+  let lastAutoList = null;
 
-  function recalc(){
-    const purchase  = asNum(purchaseEl);
-    const listPrice = asNum(listEl);
+  function recalc(andAutoFillList = false){
+    const purchase = asNum(purchaseEl);
+    const listing  = asNum(listEl);
 
-    // Compute breakeven
-    const be = breakeven(purchase);
-    breakEl.value = purchase ? be.toFixed(2) : '';
+    // Breakeven
+    const be = purchase ? breakeven(purchase) : 0;
+    if (breakEl) breakEl.value = purchase ? be.toFixed(2) : '';
 
-    // If user hasn't manually changed List Price, auto-fill it to breakeven
-    if ((!listEl.value || listEl.dataset.autoFilled === "true") && purchase > 0) {
-      listEl.value = be.toFixed(2);
-      listEl.dataset.autoFilled = "true"; // still auto-controlled
+    // Auto-fill list price if (a) asked to or (b) list is empty or equals the last auto-set
+    if (listEl) {
+      const currentListText = (listEl.value || '').trim();
+      const currentList = listing;
+      const shouldAuto =
+        andAutoFillList ||
+        currentListText === '' ||
+        (lastAutoList !== null && currentList === lastAutoList);
+
+      if (purchase && shouldAuto) {
+        listEl.value = be.toFixed(2);
+        lastAutoList = be;
+      }
     }
 
-    // Fee & Profit based on current list price
-    const fee = poshmarkFee(asNum(listEl));
-    feeEl.value = listEl.value ? fee.toFixed(2) : '';
-    const profit = listEl.value ? (asNum(listEl) - fee - purchase) : 0;
-    profitEl.value = listEl.value ? profit.toFixed(2) : '';
+    // Fee & Profit (based on whatever is in listEl now)
+    const listNow = asNum(listEl);
+    const fee = poshmarkFee(listNow);
+    if (feeEl)    feeEl.value    = listNow ? fee.toFixed(2) : '';
+    if (profitEl) profitEl.value = listNow ? (listNow - fee - purchase).toFixed(2) : '';
   }
 
-  purchaseEl?.addEventListener('input', recalc);
-  window.addEventListener('DOMContentLoaded', recalc);
+  // Recalc whenever purchase or list changes.
+  purchaseEl?.addEventListener('input', () => recalc(true));  // also auto-fill list on purchase change
+  listEl?.addEventListener('input', () => {
+    lastAutoList = null; // user's typing cancels auto-lock
+    recalc(false);
+  });
+
+  // Initial pass after DOM is ready
+  window.addEventListener('DOMContentLoaded', () => recalc(true));
 </script>
+
 {% endblock %}
