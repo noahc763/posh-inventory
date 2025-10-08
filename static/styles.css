@@ -172,6 +172,9 @@ input:disabled, select:disabled, textarea:disabled, .input:disabled{
   height: 100%;
   object-fit: contain; 
 }
+.item-title-wrap{display:flex;align-items:center;gap:10px;min-width:220px}
+.item-thumb{width:48px;height:48px;flex:0 0 48px;border-radius:8px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea}
+
 
 /* Strip rotation */
 .item-thumb img {
