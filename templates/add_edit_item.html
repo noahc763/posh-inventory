@@ -41,6 +41,54 @@
             >{{ c.name }}</option>
           {% endfor %}
         </select>
+
+        <script>
+          const purchaseEl = document.getElementById('purchase_price');
+          const listEl = document.getElementById('listing_price');
+          const feeEl = document.getElementById('fee');
+          const profitEl = document.getElementById('profit');
+          const breakEl = document.getElementById('breakeven_price');
+        
+          function asNum(el){ const v = parseFloat((el?.value || '').replace(/[^\d.]/g,'')); return isNaN(v)?0:v; }
+          function ceil2(x){ return Math.ceil(x * 100) / 100; }
+        
+          // Poshmark fee: $2.95 for items < $15, else 20%
+          function poshmarkFee(listing){ if(listing<=0) return 0; return listing < 15 ? 2.95 : listing * 0.20; }
+        
+          // Minimum list price that makes profit >= 0 (piecewise)
+          function breakeven(purchase){
+            if (purchase <= 0) return 0;
+            const flatCandidate = purchase + 2.95;
+            if (flatCandidate < 15) return ceil2(flatCandidate);
+            const percentCandidate = purchase / 0.8;
+            return ceil2(Math.max(15, percentCandidate));
+          }
+        
+          function recalc(){
+            const purchase = asNum(purchaseEl);
+            const listing = asNum(listEl);
+        
+            // Fee and profit from current listing
+            const fee = poshmarkFee(listing);
+            feeEl.value = listing ? fee.toFixed(2) : '';
+            const profit = listing ? (listing - fee - purchase) : 0;
+            profitEl.value = listing ? profit.toFixed(2) : '';
+        
+            // Breakeven
+            const be = breakeven(purchase);
+            breakEl.value = purchase ? be.toFixed(2) : '';
+        
+            // Auto-fill List Price if empty OR force update
+            if (!listEl.value || listEl.dataset.autoFilled === "true") {
+              listEl.value = be.toFixed(2);
+              listEl.dataset.autoFilled = "true"; // mark as auto-filled so user can override
+            }
+          }
+        
+          purchaseEl?.addEventListener('input', recalc);
+          listEl?.addEventListener('input', () => { listEl.dataset.autoFilled = "false"; }); // user override
+          window.addEventListener('DOMContentLoaded', recalc);
+        </script>
       </div>
 
       <!-- Purchase source -->

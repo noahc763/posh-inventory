@@ -53,6 +53,7 @@
         <label class="field">
           <span>List Price</span>
           <input id="list_price" name="list_price" type="number" step="0.01" min="0" placeholder="0.00" />
+          <span class="small muted">Auto-filled to breakeven. You can override.</span>
         </label>
       </div>
 
@@ -171,42 +172,57 @@
     if (e.key === 'Enter') { e.preventDefault(); createCategory(); }
   });
 
-  // --- Numbers & fee/profit/breakeven preview ---
+  // --- Numbers & fee/profit/breakeven preview with auto-fill of List Price ---
   const purchaseEl = document.getElementById('purchase_price');
-  const listEl = document.getElementById('list_price');
-  const feeEl = document.getElementById('fee');
-  const profitEl = document.getElementById('profit');
-  const breakEl = document.getElementById('breakeven_price');
+  const listEl     = document.getElementById('list_price');
+  const feeEl      = document.getElementById('fee');
+  const profitEl   = document.getElementById('profit');
+  const breakEl    = document.getElementById('breakeven_price');
 
   function asNum(el){ const v = parseFloat((el?.value || '').replace(/[^\d.]/g,'')); return isNaN(v)?0:v; }
   function ceil2(x){ return Math.ceil(x * 100) / 100; }
 
-  // Poshmark fee: $2.95 for items < $15, else 20%
-  function poshmarkFee(listing){ if(listing<=0) return 0; return listing < 15 ? 2.95 : listing * 0.20; }
+  // Poshmark fee rules
+  function poshmarkFee(listPrice){
+    if (listPrice <= 0) return 0;
+    return listPrice < 15 ? 2.95 : listPrice * 0.20;
+  }
 
-  // Minimum list price that makes profit >= 0 (piecewise due to fee rules)
+  // Breakeven using fee rules
   function breakeven(purchase){
     if (purchase <= 0) return 0;
-    const flatCandidate = purchase + 2.95;           // valid only if < $15
+    const flatCandidate = purchase + 2.95;   // valid only if < $15
     if (flatCandidate < 15) return ceil2(flatCandidate);
-    const percentCandidate = purchase / 0.8;         // 20% fee regime
+    const percentCandidate = purchase / 0.8; // 20% fee regime
     return ceil2(Math.max(15, percentCandidate));
   }
 
+  // Track whether user has edited List Price
+  listEl.dataset.autoFilled = "true";
+  listEl.addEventListener('input', () => { listEl.dataset.autoFilled = "false"; });
+
   function recalc(){
-    const purchase = asNum(purchaseEl);
-    const listing = asNum(listEl);
+    const purchase  = asNum(purchaseEl);
+    const listPrice = asNum(listEl);
 
-    const fee = poshmarkFee(listing);
-    feeEl.value = listing ? fee.toFixed(2) : '';
-    const profit = listing ? (listing - fee - purchase) : 0;
-    profitEl.value = listing ? profit.toFixed(2) : '';
+    // Compute breakeven
+    const be = breakeven(purchase);
+    breakEl.value = purchase ? be.toFixed(2) : '';
 
-    breakEl.value = purchase ? breakeven(purchase).toFixed(2) : '';
+    // If user hasn't manually changed List Price, auto-fill it to breakeven
+    if ((!listEl.value || listEl.dataset.autoFilled === "true") && purchase > 0) {
+      listEl.value = be.toFixed(2);
+      listEl.dataset.autoFilled = "true"; // still auto-controlled
+    }
+
+    // Fee & Profit based on current list price
+    const fee = poshmarkFee(asNum(listEl));
+    feeEl.value = listEl.value ? fee.toFixed(2) : '';
+    const profit = listEl.value ? (asNum(listEl) - fee - purchase) : 0;
+    profitEl.value = listEl.value ? profit.toFixed(2) : '';
   }
 
   purchaseEl?.addEventListener('input', recalc);
-  listEl?.addEventListener('input', recalc);
   window.addEventListener('DOMContentLoaded', recalc);
 </script>
 {% endblock %}

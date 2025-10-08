@@ -11,6 +11,7 @@ from models import db, Item, Category, User
 from auth import auth_bp
 from items import items_bp
 from categories import categories_bp
+from utils import save_upload  # <- for photo saving
 
 
 def create_app():
@@ -20,6 +21,9 @@ def create_app():
         static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
     )
     app.config.from_object(Config)
+
+    # Ensure upload directory exists (for photo saves)
+    os.makedirs(app.config.get("UPLOAD_FOLDER", os.path.join(app.static_folder, "uploads")), exist_ok=True)
 
     # --- DB init ---
     db.init_app(app)
@@ -31,12 +35,17 @@ def create_app():
 
     @login_manager.user_loader
     def load_user(user_id):
+        # SQLAlchemy 2.x-safe get
         return db.session.get(User, int(user_id))
 
     # --- Blueprints ---
     app.register_blueprint(auth_bp)
     app.register_blueprint(items_bp)
     app.register_blueprint(categories_bp)
+
+    # Defer labels import to avoid circulars, then register
+    from labels import labels_bp
+    app.register_blueprint(labels_bp)
 
     # --- Helpers ---
     def normalize_barcode(raw: str) -> str:
@@ -51,6 +60,7 @@ def create_app():
             return None
 
     def parse_date(v):
+        """Accept YYYY-MM-DD or empty; return date or None."""
         try:
             return datetime.strptime(v, "%Y-%m-%d").date() if v else None
         except Exception:
@@ -88,7 +98,7 @@ def create_app():
         cats = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
         return render_template("scan.html", categories=cats)
 
-    # Lookup API
+    # Lookup API (used by scan.html to decide redirect)
     @app.get("/api/items/lookup")
     @login_required
     def api_items_lookup():
@@ -102,110 +112,112 @@ def create_app():
 
     # === Manual Add / New Item ===
 
-    # Legacy link support
+    # Legacy link support (/items/add → /items/new)
     @app.route("/items/add")
     def legacy_items_add():
         return redirect(url_for("items_new"), code=301)
 
-    # app.py (inside create_app())
+    # New-item route (with or without category in URL)
     @app.route("/categories/<int:category_id>/items/new", methods=["GET", "POST"])
     @app.route("/items/new", methods=["GET", "POST"])
     @login_required
-    def items_new():
-        # Prefill from querystring (e.g., scanner)
+    def items_new(category_id: int | None = None):
+        # Prefill from querystring (e.g., scanner adds ?barcode=...)
         prefill = {"barcode": request.args.get("barcode", "")}
 
-        # Dropdown list
-        categories = (Category.query
-                    .filter_by(user_id=current_user.id)
-                    .order_by(Category.name.asc())
-                    .all())
+        # Categories for dropdown
+        categories = (
+            Category.query
+            .filter_by(user_id=current_user.id)
+            .order_by(Category.name.asc())
+            .all()
+        )
 
-        # Selected category can come from URL ?category_id=, or POST form
-        cat_id = (request.args.get("category_id", type=int)
-                or request.form.get("category_id", type=int))
-        category = (Category.query
-                    .filter_by(id=cat_id, user_id=current_user.id)
-                    .first()) if cat_id else None
-
-        def as_decimal(field):
-            raw = (request.form.get(field) or "").strip()
-            try:
-                return Decimal(raw) if raw else None
-            except Exception:
-                return None
-
-        def as_datetime(field):
-            raw = (request.form.get(field) or "").strip()
-            try:
-                return datetime.fromisoformat(raw) if raw else None
-            except Exception:
-                return None
+        # Selected category from URL or form
+        cat_id = category_id or request.args.get("category_id", type=int) or request.form.get("category_id", type=int)
+        category = (
+            Category.query.filter_by(id=cat_id, user_id=current_user.id).first()
+            if cat_id else None
+        )
 
         if request.method == "POST":
+            # Required title
             title = (request.form.get("title") or request.form.get("name") or "").strip()
             if not title:
                 flash("Title is required.", "error")
-                return render_template("item_form.html",
-                                    categories=categories, category=category, prefill=prefill)
+                return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
 
+            # Require category
             if not category:
                 flash("Please select a category.", "error")
-                return render_template("item_form.html",
-                                    categories=categories, category=None, prefill=prefill)
+                return render_template("item_form.html", categories=categories, category=None, prefill=prefill)
 
-            # Build item ONLY after validation
+            # Parse inputs
+            raw_barcode    = normalize_barcode(request.form.get("barcode") or "")
+            purchase_price = parse_money(request.form.get("purchase_price"))
+            list_price     = parse_money(request.form.get("list_price"))  # <-- LIST price (not listing_price)
+            sold_price     = parse_money(request.form.get("sold_price"))
+            purchase_date  = parse_date(request.form.get("purchase_date"))
+            sold_date      = parse_date(request.form.get("sold_date"))
+            purchase_src   = (request.form.get("purchase_source") or "").strip() or None
+            notes          = (request.form.get("notes") or "").strip() or None
+            size           = (request.form.get("size") or "").strip() or None
+            color          = (request.form.get("color") or "").strip() or None
+            condition      = (request.form.get("condition") or "").strip() or None
+
+            # Optional photo upload
+            photo_path = None
+            if "photo" in request.files and request.files["photo"].filename:
+                photo_path = save_upload(request.files["photo"])  # returns e.g. "uploads/uuid.jpg"
+
+            # If barcode provided and already exists for this user, go to existing item
+            if raw_barcode:
+                existing = Item.query.filter_by(user_id=current_user.id, barcode=raw_barcode).first()
+                if existing:
+                    flash("Item with this barcode already exists; opening it.", "info")
+                    return redirect(url_for("item_detail", item_id=existing.id))
+
+            # Create the item
             item = Item(
                 user_id=current_user.id,
                 category_id=category.id,
-                barcode=(request.form.get("barcode") or None),
-                size=(request.form.get("size") or None),
-                color=(request.form.get("color") or None),
-                condition=(request.form.get("condition") or None),
-                notes=(request.form.get("notes") or None),
+                barcode=raw_barcode or None,
+                title=title if hasattr(Item, "title") else None,
+                size=size,
+                color=color,
+                condition=condition,
+                notes=notes,
+                purchase_source=purchase_src,
+                purchase_price=purchase_price or Decimal("0.00"),
+                list_price=list_price,     # may be None if you left it empty
+                sold_price=sold_price,
+                purchase_date=purchase_date,
+                sold_date=sold_date,
+                photo_path=photo_path
             )
 
-            # title/name compatibility
-            if hasattr(Item, "title"):
-                item.title = title
-            else:
+            # Some schemas use 'name' instead of 'title'
+            if not hasattr(Item, "title") and hasattr(Item, "name"):
                 item.name = title
 
-            # prices
-            item.purchase_price = as_decimal("purchase_price")
-            if hasattr(Item, "listing_price"):
-                item.listing_price = as_decimal("listing_price")
-            elif hasattr(Item, "list_price"):
-                item.list_price = as_decimal("listing_price")
-            elif hasattr(Item, "price"):
-                item.price = as_decimal("listing_price")
-
-            # sold price (if exists)
-            if hasattr(Item, "sold_price"):
-                item.sold_price = as_decimal("sold_price")
-
-            # dates: prefer purchase_date if your model has it
-            if hasattr(Item, "purchase_date"):
-                item.purchase_date = as_datetime("purchase_date")
-            elif hasattr(Item, "sold_date"):
-                item.sold_date = as_datetime("purchase_date")  # reuse same input
-
             db.session.add(item)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                flash("Could not create item (possibly duplicate barcode).", "error")
+                return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
+
             flash("Item added.", "success")
             return redirect(url_for("item_detail", item_id=item.id))
 
-        # GET → just render the form (category may be None)
-        return render_template("item_form.html",categories=categories, category=category, prefill=prefill)
-
+        # GET → render the form (category can be None)
+        return render_template("item_form.html", categories=categories, category=category, prefill=prefill)
 
     # Health check
     @app.route("/healthz")
     def healthz():
         return {"ok": True}
-
-    from labels import labels_bp
-    app.register_blueprint(labels_bp)
 
     return app
 
