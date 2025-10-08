@@ -40,6 +40,30 @@
       </form>
     </div>
 
+    <!-- Local styles for thumbnail + lightbox -->
+    <style>
+      .item-title-wrap{display:flex;align-items:center;gap:10px;min-width:220px}
+      .item-thumb{width:48px;height:48px;flex:0 0 48px;border-radius:8px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea}
+      .item-thumb img{
+        width:100%;height:100%;object-fit:cover;
+        transform:none !important;              /* cancel accidental rotation */
+        image-orientation: from-image;          /* respect EXIF */
+        border-radius:8px;
+        cursor:pointer;
+      }
+      .item-title{font-weight:600;color:inherit;text-decoration:none}
+      .item-title:hover{text-decoration:underline}
+
+      /* Lightbox modal */
+      .img-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.9)}
+      .img-modal.open{display:block}
+      .img-modal__close{
+        position:absolute;top:16px;right:20px;color:#fff;font-size:34px;font-weight:700;cursor:pointer;line-height:1;
+      }
+      .img-modal__body{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:24px}
+      .img-modal__img{max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    </style>
+
     <div class="table-wrap">
       <table class="table">
         <thead>
@@ -47,12 +71,11 @@
             <th style="width:36px;text-align:center;">
               <input id="chkAll" type="checkbox" aria-label="Select all" />
             </th>
-            <th style="width:64px;">Photo</th>
             <th>Title</th>
             <th>Category</th>
             <th>Barcode</th>
             <th>Purchase</th>
-            <th>Listed</th>
+            <th>List</th>
             <th>Sold</th>
             <th class="right">Actions</th>
           </tr>
@@ -60,7 +83,7 @@
         <tbody>
           {% if items|length == 0 %}
           <tr class="empty-row">
-            <td colspan="9">
+            <td colspan="8">
               No items yet. Use <em>+ Add item</em> to create your first one.
             </td>
           </tr>
@@ -71,22 +94,23 @@
               <input class="chkItem" type="checkbox" value="{{ it.id }}" aria-label="Select item {{ it.id }}" />
             </td>
 
-            <!-- Photo column -->
             <td>
-              {% if it.photo_path %}
-                <img
-                  src="{{ url_for('static', filename=it.photo_path) }}"
-                  alt="{{ it.title or it.name }}"
-                  style="width:48px;height:48px;object-fit:cover;border-radius:6px;display:block;"
-                >
-              {% else %}
-                <span class="muted">—</span>
-              {% endif %}
-            </td>
-
-            <td>
-              <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
-              {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
+              <div class="item-title-wrap">
+                {% if it.photo_path %}
+                  <div class="item-thumb">
+                    <img
+                      src="{{ url_for('static', filename=it.photo_path) }}"
+                      alt="Photo of {{ it.title or it.name }}"
+                      onclick="openImgModal(this.src)"
+                      loading="lazy"
+                    >
+                  </div>
+                {% endif %}
+                <div>
+                  <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
+                  {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
+                </div>
+              </div>
             </td>
 
             <td>{{ it.category.name if it.category else "—" }}</td>
@@ -117,6 +141,7 @@
               <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
               <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
 
+              <!-- Per-row delete (posts to bulk_delete with single id) -->
               <form method="post"
                     action="{{ url_for('items.bulk_delete_items') }}"
                     style="display:inline"
@@ -133,6 +158,14 @@
     </div>
   </div>
 </section>
+
+<!-- Image lightbox modal (one per page) -->
+<div id="imgModal" class="img-modal" role="dialog" aria-modal="true" aria-label="Image preview" onclick="closeImgModal(event)">
+  <span class="img-modal__close" aria-label="Close" onclick="closeImgModal(event)">&times;</span>
+  <div class="img-modal__body">
+    <img id="imgModalImg" class="img-modal__img" alt="Preview">
+  </div>
+</div>
 
 <script>
 (function(){
@@ -181,6 +214,26 @@
     $('#bulkDeleteIds').value = ids.join(',');
   });
 })();
+
+// -------- Lightbox helpers --------
+function openImgModal(src){
+  const m = document.getElementById('imgModal');
+  const img = document.getElementById('imgModalImg');
+  img.src = src;
+  m.classList.add('open');
+  document.body.style.overflow = 'hidden'; // prevent background scroll
+}
+function closeImgModal(ev){
+  // allow clicking backdrop or close button
+  if (ev && ev.target && !ev.target.classList.contains('img-modal') && ev.target.id !== 'imgModal' && !ev.target.classList.contains('img-modal__close')) {
+    return;
+  }
+  const m = document.getElementById('imgModal');
+  m.classList.remove('open');
+  document.getElementById('imgModalImg').src = '';
+  document.body.style.overflow = '';
+}
 </script>
 
 {% endblock %}
+
