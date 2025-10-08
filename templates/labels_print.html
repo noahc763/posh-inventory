@@ -5,116 +5,141 @@
   <title>Barcode Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  <!-- Light theme variables (aligned with styles.css) -->
   <style>
     :root{
-      --label-w: 40mm;   /* physical label width */
-      --label-h: 30mm;   /* physical label height */
-      --gap:     0mm;    /* no gaps for roll */
-      --margin:  0mm;    /* no page margin */
+      --brand:#2563eb;
+      --ink:#0f172a;
+      --ink-muted:#475569;
+      --surface:#ffffff;
+      --border:#e5e7eb;
+
+      /* Label geometry (injected from Flask) */
+      --label-w: {{ label_w|default("40mm") }};
+      --label-h: {{ label_h|default("30mm") }};
+      --gap:     {{ gap|default("2mm") }};
+      --margin:  {{ margin|default("4mm") }};
       --cols:    {{ cols|default(1) }};
     }
-  
-    /* Screen helpers */
+
+    /* Screen layout */
+    html, body { height: 100%; }
     body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+      color: var(--ink);
+      background: #f6f7fb;
     }
+
     .toolbar{
-      display:flex; gap:8px; align-items:center; padding:10px;
-      position: sticky; top:0; background:#fff; border-bottom:1px solid #eee; z-index:1;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
     }
-    .toolbar .btn { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#f7f7f7; cursor:pointer; }
-  
-    /* Canvas that holds all labels */
-    .sheet{
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+      background:#1d4ed8;color:#f1f5f9;border:1px solid transparent;border-radius:10px;
+      padding:10px 14px;font-weight:700;text-decoration:none;
+    }
+    .btn:hover { filter: brightness(0.98); }
+
+    .info { color: var(--ink-muted); font-size: 14px; }
+
+    /* Page “sheet” sized to exact printable area for the grid */
+    .sheet {
       margin: 12px auto;
-      width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
+      width: calc(
+        (var(--label-w) * var(--cols)) +
+        (var(--gap) * (var(--cols) - 1)) +
+        (var(--margin) * 2)
+      );
       padding: var(--margin);
       box-sizing: content-box;
-      background:#fff;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
     }
-  
-    .grid{
-      display:grid;
+
+    .grid {
+      display: grid;
       grid-template-columns: repeat(var(--cols), var(--label-w));
       grid-auto-rows: var(--label-h);
       gap: var(--gap);
     }
-  
-    /* The label itself should be exactly 40x30mm with no extra padding in print */
-    .label{
+
+    /* Each label is exactly the target physical size */
+    .label {
       width: var(--label-w);
       height: var(--label-h);
       box-sizing: border-box;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap: 2mm;           /* spacing between image and digits */
-      padding: 0mm;       /* IMPORTANT: no padding in print */
-      border: 1px dashed #ddd; /* screen-only visual aid */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #fff;
+      /* dashed outline on screen only to visualize label edges */
+      border: 1px dashed #e5e7eb;
     }
-  
-    .imgwrap{
-      width: 100%;
-      height: calc(var(--label-h) - 8mm); /* leave room for digits */
-      display:flex; align-items:center; justify-content:center;
-    }
-    .imgwrap img{
+
+    /* Barcode image fills the label area without overflow */
+    .label img {
       width: 100%;
       height: 100%;
-      object-fit: contain;           /* fill area while preserving aspect */
-      image-rendering: crisp-edges;  /* helps thermal printers */
+      object-fit: contain; /* keep aspect, don’t crop */
+      image-rendering: crisp-edges;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: pixelated; /* helps some thermal drivers */
+      -ms-interpolation-mode: nearest-neighbor;
+      display: block;
     }
-  
-    .digits{
-      font-size: 10pt;
-      line-height: 1;
-      letter-spacing: 0.06em;
-      white-space: nowrap;
-    }
-  
-    /* Print rules: force the physical paper size and disable margins/scaling */
+
+    /* Print rules: remove everything non-essential and remove margins */
     @media print {
-      @page {
-        size: var(--label-w) var(--label-h);
-        margin: 0;
+      @page { size: auto; margin: 0; } /* full-bleed, let CSS geometry control size */
+      body { margin: 0; background: transparent; }
+      .toolbar { display: none !important; }
+      .sheet {
+        margin: 0 auto;
+        border: 0;
+        border-radius: 0;
       }
-      html, body {
-        width: var(--label-w);
-        height: var(--label-h);
-        margin: 0 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+      .label {
+        border: 0; /* no screen outline on paper */
+        page-break-inside: avoid;
+        break-inside: avoid;
       }
-      .toolbar{ display:none; }
-      .sheet{ margin: 0 auto; padding: 0; }
-      .label{ border: none; }  /* remove the dashed border in print */
-      /* If you’re printing multiple labels, most roll drivers will print one per page.
-         For sheet printers (A4/Letter), set cols > 1 and adjust @page to the sheet size instead. */
     }
   </style>
-  
 </head>
 <body>
 
-<div class="toolbar">
-  <button class="btn" onclick="window.print()">🖨️ Print</button>
-  <div class="info">Columns: {{ cols }} · Size: {{ label_w }} × {{ label_h }} at {{ dpi }} DPI</div>
-</div>
+  <div class="toolbar">
+    <a class="btn" href="javascript:window.print()">🖨️ Print</a>
+    <div class="info">
+      {{ cols }} column{{ 1 if cols==1 else 's' }},
+      Label {{ label_w }} × {{ label_h }},
+      Gap {{ gap }}, Margin {{ margin }},
+      DPI: {{ dpi }}
+    </div>
+  </div>
 
-<div class="sheet">
-  <div class="grid">
-    {% for lab in labels %}
-      <div class="label">
-        <div class="imgwrap">
+  <div class="sheet">
+    <div class="grid">
+      {# We intentionally render only the PNG (digits are inside the PNG if write_text=True).
+         No extra text under/over the barcode to avoid overlap. #}
+      {% for lab in labels %}
+        <div class="label">
           <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
         </div>
-        <div class="digits">{{ lab.barcode }}</div>
-      </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
-</div>
 
 </body>
 </html>
