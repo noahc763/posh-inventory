@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<section class="card">
+<section class="card" style="max-width: 760px; margin: 0 auto;">
   <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
     <h2 style="margin:0;">{{ 'Edit item' if item else 'Add item' }}</h2>
   </div>
@@ -29,66 +29,27 @@
       </div>
 
       <!-- Category -->
-      <div class="field">
+      <div class="field" style="grid-column:1/-1;">
         <label>Category</label>
-        <select name="category_id" class="input">
-          <option value="">— None —</option>
-          {% for c in categories %}
-            <option value="{{ c.id }}"
-              {% if (item and item.category_id == c.id) or (not item and prefill and prefill.category_id and prefill.category_id|int == c.id) %}
-                selected
-              {% endif %}
-            >{{ c.name }}</option>
-          {% endfor %}
-        </select>
+        <div style="display:grid; gap:10px;">
+          <select name="category_id" id="category_id" class="input">
+            <option value="">— None —</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}"
+                {% if (item and item.category_id == c.id) or (not item and prefill and prefill.category_id and prefill.category_id|int == c.id) %}
+                  selected
+                {% endif %}
+              >{{ c.name }}</option>
+            {% endfor %}
+          </select>
 
-        <script>
-          const purchaseEl = document.getElementById('purchase_price');
-          const listEl = document.getElementById('listing_price');
-          const feeEl = document.getElementById('fee');
-          const profitEl = document.getElementById('profit');
-          const breakEl = document.getElementById('breakeven_price');
-        
-          function asNum(el){ const v = parseFloat((el?.value || '').replace(/[^\d.]/g,'')); return isNaN(v)?0:v; }
-          function ceil2(x){ return Math.ceil(x * 100) / 100; }
-        
-          // Poshmark fee: $2.95 for items < $15, else 20%
-          function poshmarkFee(listing){ if(listing<=0) return 0; return listing < 15 ? 2.95 : listing * 0.20; }
-        
-          // Minimum list price that makes profit >= 0 (piecewise)
-          function breakeven(purchase){
-            if (purchase <= 0) return 0;
-            const flatCandidate = purchase + 2.95;
-            if (flatCandidate < 15) return ceil2(flatCandidate);
-            const percentCandidate = purchase / 0.8;
-            return ceil2(Math.max(15, percentCandidate));
-          }
-        
-          function recalc(){
-            const purchase = asNum(purchaseEl);
-            const listing = asNum(listEl);
-        
-            // Fee and profit from current listing
-            const fee = poshmarkFee(listing);
-            feeEl.value = listing ? fee.toFixed(2) : '';
-            const profit = listing ? (listing - fee - purchase) : 0;
-            profitEl.value = listing ? profit.toFixed(2) : '';
-        
-            // Breakeven
-            const be = breakeven(purchase);
-            breakEl.value = purchase ? be.toFixed(2) : '';
-        
-            // Auto-fill List Price if empty OR force update
-            if (!listEl.value || listEl.dataset.autoFilled === "true") {
-              listEl.value = be.toFixed(2);
-              listEl.dataset.autoFilled = "true"; // mark as auto-filled so user can override
-            }
-          }
-        
-          purchaseEl?.addEventListener('input', recalc);
-          listEl?.addEventListener('input', () => { listEl.dataset.autoFilled = "false"; }); // user override
-          window.addEventListener('DOMContentLoaded', recalc);
-        </script>
+          <!-- Inline category create -->
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input id="newCatName" type="text" class="input" placeholder="New category name" style="max-width:260px;">
+            <button id="createCatBtn" class="btn outline" type="button">+ Create category</button>
+            <span class="muted small" id="createCatStatus" aria-live="polite"></span>
+          </div>
+        </div>
       </div>
 
       <!-- Purchase source -->
@@ -100,7 +61,7 @@
       <!-- Purchase price -->
       <div class="field">
         <label>Purchase price</label>
-        <input name="purchase_price" type="number" inputmode="decimal" step="0.01" min="0"
+        <input id="purchase_price" name="purchase_price" type="number" inputmode="decimal" step="0.01" min="0"
                value="{{ '%.2f'|format(item.purchase_price) if item and item.purchase_price is not none else '' }}" />
       </div>
 
@@ -114,11 +75,11 @@
       <!-- List price -->
       <div class="field">
         <label>List price</label>
-        <input name="list_price" type="number" inputmode="decimal" step="0.01" min="0"
+        <input id="list_price" name="list_price" type="number" inputmode="decimal" step="0.01" min="0"
                value="{{ '%.2f'|format(item.list_price) if item and item.list_price is not none else '' }}" />
       </div>
 
-      <!-- Sold price (now shown for both add & edit) -->
+      <!-- Sold price -->
       <div class="field">
         <label>Sold price</label>
         <input name="sold_price" type="number" inputmode="decimal" step="0.01" min="0"
@@ -132,13 +93,31 @@
                value="{{ item.sold_date.strftime('%Y-%m-%d') if item and item.sold_date else '' }}" />
       </div>
 
+      <!-- Fee / Profit preview -->
+      <div class="field">
+        <label>Estimated Poshmark Fee (auto)</label>
+        <input id="fee" name="platform_fee" type="number" step="0.01" min="0" placeholder="0.00" readonly />
+      </div>
+
+      <div class="field">
+        <label>Estimated Profit (auto)</label>
+        <input id="profit" type="number" step="0.01" placeholder="0.00" readonly />
+      </div>
+
+      <!-- Breakeven -->
+      <div class="field" style="grid-column:1/-1;">
+        <label>Breakeven Price (auto)</label>
+        <input id="breakeven_price" type="number" step="0.01" placeholder="0.00" readonly />
+        <div class="small muted">Lowest list price to cover purchase + Poshmark fee.</div>
+      </div>
+
       <!-- Notes -->
       <div class="field" style="grid-column:1/-1;">
         <label>Notes</label>
         <textarea name="notes" rows="4" placeholder="Optional details…">{{ item.notes if item else '' }}</textarea>
       </div>
 
-      <!-- Photo (optional; safe to keep even if you don't use it yet) -->
+      <!-- Photo -->
       <div class="field" style="grid-column:1/-1;">
         <label>Photo</label>
         <input type="file" name="photo" accept="image/*" />
@@ -155,5 +134,120 @@
     </form>
   </div>
 </section>
+
+<script>
+  // --- Inline category creation ---
+  const createBtn = document.getElementById('createCatBtn');
+  const nameInput = document.getElementById('newCatName');
+  const selectEl  = document.getElementById('category_id');
+  const statusEl  = document.getElementById('createCatStatus');
+
+  async function createCategory() {
+    const name = (nameInput?.value || '').trim();
+    if (!name) { alert('Enter a category name'); nameInput?.focus(); return; }
+
+    createBtn.disabled = true;
+    statusEl.textContent = 'Creating…';
+
+    try {
+      const resp = await fetch('{{ url_for("categories.api_create_category") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+
+      const id = String(data.id);
+      let present = false;
+      for (const opt of selectEl.options) { if (opt.value === id) { present = true; break; } }
+      if (!present) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = data.name;
+        selectEl.appendChild(opt);
+      }
+      selectEl.value = id;
+      nameInput.value = '';
+      statusEl.textContent = data.created ? 'Category created.' : 'Category already existed.';
+    } catch (e) {
+      alert('Could not create category: ' + e.message);
+      statusEl.textContent = 'Failed.';
+    } finally {
+      createBtn.disabled = false;
+      setTimeout(() => statusEl.textContent = '', 2000);
+    }
+  }
+  createBtn?.addEventListener('click', createCategory);
+  nameInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); createCategory(); }
+  });
+
+  // --- Fee / Profit / Breakeven + auto-fill List Price ---
+  const purchaseEl = document.getElementById('purchase_price');
+  const listEl     = document.getElementById('list_price');
+  const feeEl      = document.getElementById('fee');
+  const profitEl   = document.getElementById('profit');
+  const breakEl    = document.getElementById('breakeven_price');
+
+  function asNum(el){
+    if (!el) return 0;
+    const raw = (el.value || '').replace(/[^\d.]/g,'');
+    const v = parseFloat(raw);
+    return isNaN(v) ? 0 : v;
+  }
+  function ceil2(x){ return Math.ceil(x * 100) / 100; }
+
+  // Poshmark fee: $2.95 if list < $15, else 20%
+  function poshmarkFee(listing){
+    if (listing <= 0) return 0;
+    return listing < 15 ? 2.95 : listing * 0.20;
+  }
+
+  // Breakeven: min L s.t. L - fee(L) - purchase >= 0
+  function breakeven(purchase){
+    if (purchase <= 0) return 0;
+    const flatCandidate = purchase + 2.95;   // valid only if < 15
+    if (flatCandidate < 15) return ceil2(flatCandidate);
+    const percentCandidate = purchase / 0.8; // 20% fee regime
+    return ceil2(Math.max(15, percentCandidate));
+  }
+
+  let lastAutoList = null;
+
+  function recalc(andAutoFillList = false){
+    const purchase = asNum(purchaseEl);
+    const listing  = asNum(listEl);
+
+    // Breakeven field
+    const be = purchase ? breakeven(purchase) : 0;
+    if (breakEl) breakEl.value = purchase ? be.toFixed(2) : '';
+
+    // Auto-fill List Price if appropriate
+    if (listEl) {
+      const currentText = (listEl.value || '').trim();
+      const currentNum  = listing;
+      const shouldAuto =
+        andAutoFillList ||
+        currentText === '' ||
+        (lastAutoList !== null && currentNum === lastAutoList);
+
+      if (purchase && shouldAuto) {
+        listEl.value = be.toFixed(2);
+        lastAutoList = be;
+      }
+    }
+
+    // Fee & Profit based on current list value
+    const listNow = asNum(listEl);
+    const fee = poshmarkFee(listNow);
+    if (feeEl)    feeEl.value    = listNow ? fee.toFixed(2) : '';
+    if (profitEl) profitEl.value = listNow ? (listNow - fee - purchase).toFixed(2) : '';
+  }
+
+  purchaseEl?.addEventListener('input', () => recalc(true));   // also auto-fill list on purchase change
+  listEl?.addEventListener('input', () => { lastAutoList = null; recalc(false); }); // stop overriding once user edits
+  window.addEventListener('DOMContentLoaded', () => recalc(true));
+</script>
 
 {% endblock %}
