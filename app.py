@@ -22,8 +22,9 @@ def create_app():
     )
     app.config.from_object(Config)
 
-    # Ensure upload directory exists (for photo saves)
-    os.makedirs(app.config.get("UPLOAD_FOLDER", os.path.join(app.static_folder, "uploads")), exist_ok=True)
+    # make sure static/uploads exists
+    os.makedirs(os.path.join(app.static_folder, app.config["UPLOAD_DIR"]), exist_ok=True)
+
 
     # --- DB init ---
     db.init_app(app)
@@ -199,6 +200,15 @@ def create_app():
             # Some schemas use 'name' instead of 'title'
             if not hasattr(Item, "title") and hasattr(Item, "name"):
                 item.name = title
+            # Handle photo upload
+            if "photo" in request.files and request.files["photo"].filename:
+                rel_path = save_upload(request.files["photo"])  # e.g., "uploads/abcd.jpg"
+                if rel_path:
+                    # Make sure your Item model has photo_path = db.Column(db.String(255))
+                    item.photo_path = rel_path
+                else:
+                    # Optional: warn if extension invalid, etc.
+                    flash("Photo not saved (file type not allowed).", "error")
 
             db.session.add(item)
             try:

@@ -1,10 +1,11 @@
+# items.py
 from datetime import datetime
 from decimal import Decimal
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from sqlalchemy import delete
 
 from models import db, Item, Category
+from utils import save_upload  # <-- NEW: for saving photos
 
 items_bp = Blueprint("items", __name__)
 
@@ -29,7 +30,29 @@ def _user_categories():
         .all()
     )
 
-# ---------- Routes (keep only what’s needed) ----------
+def _breakeven(purchase_price: Decimal | None) -> Decimal | None:
+    """
+    Poshmark fee: $2.95 if list < $15, else 20%.
+    Find the minimum list price L such that L - fee(L) - purchase >= 0.
+    Mirrors the JS used on the form.
+    """
+    if purchase_price is None or purchase_price <= 0:
+        return None
+
+    # If breakeven under the flat-fee regime is still < $15, use that.
+    flat_candidate = purchase_price + Decimal("2.95")
+    if flat_candidate < Decimal("15.00"):
+        # round up 2 decimals
+        return (flat_candidate * 100).to_integral_value(rounding="ROUND_CEILING") / Decimal(100)
+
+    # Otherwise the 20% regime: L - 0.2L - purchase = 0  =>  0.8L = purchase  => L = purchase / 0.8
+    percent_candidate = purchase_price / Decimal("0.8")
+    if percent_candidate < Decimal("15.00"):
+        percent_candidate = Decimal("15.00")
+    return (percent_candidate * 100).to_integral_value(rounding="ROUND_CEILING") / Decimal(100)
+
+
+# ---------- Routes ----------
 
 @items_bp.route("/items/add", methods=["GET", "POST"])
 @items_bp.route("/items/new", methods=["GET", "POST"])
@@ -40,14 +63,24 @@ def add_item():
             "barcode": request.args.get("barcode", ""),
             "category_id": request.args.get("category_id", "")
         }
-        return render_template("add_edit_item.html", item=None, categories=_user_categories(), prefill=prefill)
+        return render_template(
+            "add_edit_item.html",
+            item=None,
+            categories=_user_categories(),
+            prefill=prefill
+        )
 
     # POST create
     f = request.form
     title = (f.get("title") or "").strip()
     if not title:
         flash("Title is required.", "error")
-        return render_template("add_edit_item.html", item=None, categories=_user_categories(), prefill={"barcode": f.get("barcode","")})
+        return render_template(
+            "add_edit_item.html",
+            item=None,
+            categories=_user_categories(),
+            prefill={"barcode": f.get("barcode","")}
+        )
 
     # Optional category
     category = None
@@ -63,23 +96,43 @@ def add_item():
             flash("An item with that barcode already exists.", "info")
             return redirect(url_for("item_detail", item_id=existing.id))
 
+    purchase_price = _parse_money(f.get("purchase_price")) or Decimal("0.00")
+    list_price = _parse_money(f.get("list_price"))
+    sold_price = _parse_money(f.get("sold_price"))
+
+    # If no list price was entered, auto-fill with breakeven (server-side safety)
+    if list_price is None:
+        be = _breakeven(purchase_price)
+        if be is not None:
+            list_price = be
+
     item = Item(
         user_id=current_user.id,
         category_id=(category.id if category else None),
         title=title,
         barcode=barcode or None,
-        purchase_price=_parse_money(f.get("purchase_price")) or Decimal("0.00"),
-        list_price=_parse_money(f.get("list_price")),
-        sold_price=_parse_money(f.get("sold_price")),          # includes sold price at create
+        purchase_price=purchase_price,
+        list_price=list_price,
+        sold_price=sold_price,                       # includes sold price at create
         purchase_date=_parse_date(f.get("purchase_date")),
         sold_date=_parse_date(f.get("sold_date")),
         purchase_source=f.get("purchase_source") or None,
         notes=f.get("notes") or None,
     )
+
+    # Photo upload (NEW)
+    if "photo" in request.files and request.files["photo"].filename:
+        rel_path = save_upload(request.files["photo"])  # e.g. "uploads/abcd.jpg"
+        if rel_path:
+            item.photo_path = rel_path
+        else:
+            flash("Photo not saved (file type not allowed).", "error")
+
     db.session.add(item)
     db.session.commit()
     flash("Item added.", "success")
     return redirect(url_for("item_detail", item_id=item.id))
+
 
 @items_bp.route("/items/<int:item_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -89,12 +142,22 @@ def edit_item(item_id):
     if request.method == "POST":
         form = request.form
 
-        # Names here should match your templates (you removed size/color/condition from the form)
-        item.title = form.get("title") or item.title
+        # Basic fields
+        item.title = (form.get("title") or item.title).strip()
         item.notes = form.get("notes") or None
 
         # Barcode (optional in your schema, but unique per user when present)
-        item.barcode = (form.get("barcode") or None)
+        new_barcode = (form.get("barcode") or "").strip() or None
+        if new_barcode and new_barcode != (item.barcode or None):
+            dup = Item.query.filter(
+                Item.user_id == current_user.id,
+                Item.barcode == new_barcode,
+                Item.id != item.id
+            ).first()
+            if dup:
+                flash("Another item already has that barcode.", "error")
+                return redirect(url_for("items.edit_item", item_id=item.id))
+        item.barcode = new_barcode
 
         # Category change (optional)
         cat_id = form.get("category_id")
@@ -104,9 +167,19 @@ def edit_item(item_id):
                 item.category_id = cat.id
 
         # Money / dates
+        pp = _parse_money(form.get("purchase_price"))
+        if pp is not None:
+            item.purchase_price = pp
+
+        lp = _parse_money(form.get("list_price"))
+        if lp is None:
+            # If the user cleared it, set to server breakeven for safety
+            be = _breakeven(item.purchase_price or Decimal("0.00"))
+            item.list_price = be
+        else:
+            item.list_price = lp
+
         item.purchase_source = form.get("purchase_source") or None
-        item.purchase_price  = _parse_money(form.get("purchase_price")) or item.purchase_price
-        item.list_price      = _parse_money(form.get("list_price"))
         item.purchase_date   = _parse_date(form.get("purchase_date"))
 
         # Optional sold fields
@@ -117,17 +190,26 @@ def edit_item(item_id):
         if sold_date is not None:
             item.sold_date = sold_date
 
+        # Photo upload (NEW)
+        if "photo" in request.files and request.files["photo"].filename:
+            rel_path = save_upload(request.files["photo"])
+            if rel_path:
+                item.photo_path = rel_path
+            else:
+                flash("Photo not saved (file type not allowed).", "error")
+
         try:
             db.session.commit()
             flash("Item updated", "success")
-        except Exception as e:
+        except Exception:
             db.session.rollback()
             flash("Could not update item (possibly barcode duplicate).", "error")
 
         return redirect(url_for("item_detail", item_id=item.id))
 
-    # GET: render edit form (if you use it)
+    # GET: render edit form
     return render_template("add_edit_item.html", item=item, categories=_user_categories())
+
 
 @items_bp.post("/items/<int:item_id>/delete")
 @login_required
@@ -162,11 +244,15 @@ def bulk_delete_items():
         return redirect(url_for("dashboard"))
 
     # Only delete the current user's items
-    Item.query.filter(Item.user_id == current_user.id, Item.id.in_(id_list)).delete(synchronize_session=False)
+    Item.query.filter(
+        Item.user_id == current_user.id,
+        Item.id.in_(id_list)
+    ).delete(synchronize_session=False)
     db.session.commit()
 
     flash(f"Deleted {len(id_list)} item(s).", "success")
     return redirect(url_for("dashboard"))
+
 
 @items_bp.route("/items/by_barcode/<barcode>")
 @login_required
