@@ -205,24 +205,6 @@ input:disabled, select:disabled, textarea:disabled, .input:disabled{
 /* Scan page */
 #video{background:#000;border-radius:12px}
 
-/* ===== Dark mode ===== */
-@media (prefers-color-scheme: dark){
-  :root{
-    --ink:#e5e7eb;
-    --ink-muted:#94a3b8;
-    --bg:#0b1220;
-    --surface:#0f172a;
-    --border:#1f2937;
-    --brand:#60a5fa;
-    --brand-ink:#0b1220;
-    --focus:#1d4ed8;
-
-    --input-bg:#0f172a;
-    --input-text:#e5e7eb;
-    --input-border:#334155;
-    --input-ph:#9ca3af;
-  }
-
   .nav-link.active{background:#1e293b;border-color:#334155}
 
   .table-wrap{background:#0e1623;border-color:#253044}
@@ -240,4 +222,4 @@ input:disabled, select:disabled, textarea:disabled, .input:disabled{
   .toast.success{border-color:#14532d;color:#bbf7d0}
   .toast.error{border-color:#7f1d1d;color:#fecaca}
   .toast.warn{border-color:#78350f;color:#fde68a}
-}
+
