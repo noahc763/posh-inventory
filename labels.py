@@ -95,7 +95,7 @@ def _labels_for_items(items: List[Item], dpi: int) -> List[dict]:
         code = (it.barcode or "").strip()
         if not code:
             continue
-        img = _barcode_png_data_url(code, dpi=dpi, write_text=True)
+        img = _barcode_png_data_url(code, dpi=dpi, write_text=False)
         out.append({"barcode": code, "img": img})
     return out
 

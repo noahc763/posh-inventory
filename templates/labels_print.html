@@ -6,93 +6,95 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
-    :root {
-      --label-w: {{ label_w }};   /* e.g., 40mm */
-      --label-h: {{ label_h }};   /* e.g., 30mm */
-      --gap:     {{ gap }};       /* e.g., 2mm */
-      --margin:  {{ margin }};    /* e.g., 4mm */
-      --cols:    {{ cols }};      /* 1 for roll printers */
-      --caption-h: 7mm;           /* reserved space for digits */
+    :root{
+      --label-w: 40mm;   /* physical label width */
+      --label-h: 30mm;   /* physical label height */
+      --gap:     0mm;    /* no gaps for roll */
+      --margin:  0mm;    /* no page margin */
+      --cols:    {{ cols|default(1) }};
     }
-
-    body { margin:0; background:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-
-    .toolbar {
+  
+    /* Screen helpers */
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+    }
+    .toolbar{
       display:flex; gap:8px; align-items:center; padding:10px;
       position: sticky; top:0; background:#fff; border-bottom:1px solid #eee; z-index:1;
     }
-    .toolbar .btn { padding:8px 12px; border:1px solid #ccc; border-radius:6px; background:#f7f7f7; cursor:pointer; }
-    .info { color:#666; font-size:0.9rem; }
-
-    .sheet {
-      margin:12px auto;
+    .toolbar .btn { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#f7f7f7; cursor:pointer; }
+  
+    /* Canvas that holds all labels */
+    .sheet{
+      margin: 12px auto;
       width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
       padding: var(--margin);
       box-sizing: content-box;
       background:#fff;
     }
-
-    .grid {
+  
+    .grid{
       display:grid;
       grid-template-columns: repeat(var(--cols), var(--label-w));
       grid-auto-rows: var(--label-h);
       gap: var(--gap);
     }
-
-    .label {
+  
+    /* The label itself should be exactly 40x30mm with no extra padding in print */
+    .label{
       width: var(--label-w);
       height: var(--label-h);
       box-sizing: border-box;
       display:flex;
-      flex-direction: column;
+      flex-direction:column;
       align-items:center;
       justify-content:center;
-      padding: 2mm 2mm 2mm;
-      border: 1px dashed #ddd;    /* for on-screen alignment only */
-      page-break-inside: avoid;
-      overflow: hidden;
+      gap: 2mm;           /* spacing between image and digits */
+      padding: 0mm;       /* IMPORTANT: no padding in print */
+      border: 1px dashed #ddd; /* screen-only visual aid */
     }
-
-    .imgwrap {
+  
+    .imgwrap{
       width: 100%;
-      /* Leave room for the code below so bars can’t collide with it */
-      height: calc(var(--label-h) - var(--caption-h));
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      height: calc(var(--label-h) - 8mm); /* leave room for digits */
+      display:flex; align-items:center; justify-content:center;
     }
-    .imgwrap img {
-      display:block;
-      max-width:100%;
-      max-height:100%;
-    }
-
-    .code {
-      height: var(--caption-h);
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    .imgwrap img{
       width: 100%;
-      font: 10pt/1.1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      letter-spacing: 0.04em;
+      height: 100%;
+      object-fit: contain;           /* fill area while preserving aspect */
+      image-rendering: crisp-edges;  /* helps thermal printers */
+    }
+  
+    .digits{
+      font-size: 10pt;
+      line-height: 1;
+      letter-spacing: 0.06em;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
-
-    .label img{
-      width:100%;
-      height:100%;
-      object-fit:contain; /* keep aspect ratio */
-    }
-
+  
+    /* Print rules: force the physical paper size and disable margins/scaling */
     @media print {
-      @page { size:auto; margin:0; }
-      .toolbar { display:none; }
-      .label { border: none; }
-      .sheet { margin:0 auto; }
+      @page {
+        size: var(--label-w) var(--label-h);
+        margin: 0;
+      }
+      html, body {
+        width: var(--label-w);
+        height: var(--label-h);
+        margin: 0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .toolbar{ display:none; }
+      .sheet{ margin: 0 auto; padding: 0; }
+      .label{ border: none; }  /* remove the dashed border in print */
+      /* If you’re printing multiple labels, most roll drivers will print one per page.
+         For sheet printers (A4/Letter), set cols > 1 and adjust @page to the sheet size instead. */
     }
   </style>
+  
 </head>
 <body>
 
@@ -108,7 +110,7 @@
         <div class="imgwrap">
           <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
         </div>
-        <div class="code">{{ lab.barcode }}</div>
+        <div class="digits">{{ lab.barcode }}</div>
       </div>
     {% endfor %}
   </div>
