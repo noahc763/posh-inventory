@@ -76,3 +76,10 @@ class Item(db.Model):
 
     def break_even_price(self):
         return break_even_listing_price(Decimal(self.purchase_price or 0))
+
+    @property
+    def profit(self):
+        if self.sold_price is None or self.purchase_price is None:
+            return None
+        fee = self.sold_price * Decimal("0.20")
+        return self.sold_price - fee - self.purchase_price

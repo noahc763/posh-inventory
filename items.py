@@ -1,11 +1,11 @@
 # items.py
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_CEILING
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 
 from models import db, Item, Category
-from utils import save_upload  # <-- NEW: for saving photos
+from utils import save_upload  # saving photos
 
 items_bp = Blueprint("items", __name__)
 
@@ -30,6 +30,16 @@ def _user_categories():
         .all()
     )
 
+def _round_up_cents(value: Decimal) -> Decimal:
+    """
+    Round UP to 2 decimals (ceil to the next cent).
+    """
+    if value is None:
+        return None
+    # convert dollars -> cents (as Decimal), ceil to integer, then back to dollars
+    cents = (value * Decimal("100")).to_integral_value(rounding=ROUND_CEILING)
+    return cents / Decimal("100")
+
 def _breakeven(purchase_price: Decimal | None) -> Decimal | None:
     """
     Poshmark fee: $2.95 if list < $15, else 20%.
@@ -39,18 +49,16 @@ def _breakeven(purchase_price: Decimal | None) -> Decimal | None:
     if purchase_price is None or purchase_price <= 0:
         return None
 
-    # If breakeven under the flat-fee regime is still < $15, use that.
+    # Case 1: flat fee regime (list < $15)
     flat_candidate = purchase_price + Decimal("2.95")
     if flat_candidate < Decimal("15.00"):
-        # round up 2 decimals
-        return (flat_candidate * 100).to_integral_value(rounding="ROUND_CEILING") / Decimal(100)
+        return _round_up_cents(flat_candidate)
 
-    # Otherwise the 20% regime: L - 0.2L - purchase = 0  =>  0.8L = purchase  => L = purchase / 0.8
+    # Case 2: 20% regime (list >= $15) -> 0.8L = purchase => L = purchase / 0.8
     percent_candidate = purchase_price / Decimal("0.8")
     if percent_candidate < Decimal("15.00"):
         percent_candidate = Decimal("15.00")
-    return (percent_candidate * 100).to_integral_value(rounding="ROUND_CEILING") / Decimal(100)
-
+    return _round_up_cents(percent_candidate)
 
 # ---------- Routes ----------
 
@@ -86,7 +94,12 @@ def add_item():
     category = None
     cat_id = f.get("category_id")
     if cat_id:
-        category = Category.query.filter_by(id=int(cat_id), user_id=current_user.id).first()
+        try:
+            category = Category.query.filter_by(
+                id=int(cat_id), user_id=current_user.id
+            ).first()
+        except ValueError:
+            category = None
 
     # Optional barcode, unique per user
     barcode = (f.get("barcode") or "").strip()
@@ -113,14 +126,14 @@ def add_item():
         barcode=barcode or None,
         purchase_price=purchase_price,
         list_price=list_price,
-        sold_price=sold_price,                       # includes sold price at create
+        sold_price=sold_price,  # allow sold price at create
         purchase_date=_parse_date(f.get("purchase_date")),
         sold_date=_parse_date(f.get("sold_date")),
         purchase_source=f.get("purchase_source") or None,
         notes=f.get("notes") or None,
     )
 
-    # Photo upload (NEW)
+    # Photo upload
     if "photo" in request.files and request.files["photo"].filename:
         rel_path = save_upload(request.files["photo"])  # e.g. "uploads/abcd.jpg"
         if rel_path:
@@ -146,7 +159,7 @@ def edit_item(item_id):
         item.title = (form.get("title") or item.title).strip()
         item.notes = form.get("notes") or None
 
-        # Barcode (optional in your schema, but unique per user when present)
+        # Barcode (optional; unique per user when present)
         new_barcode = (form.get("barcode") or "").strip() or None
         if new_barcode and new_barcode != (item.barcode or None):
             dup = Item.query.filter(
@@ -162,9 +175,12 @@ def edit_item(item_id):
         # Category change (optional)
         cat_id = form.get("category_id")
         if cat_id:
-            cat = Category.query.filter_by(id=int(cat_id), user_id=current_user.id).first()
-            if cat:
-                item.category_id = cat.id
+            try:
+                cat = Category.query.filter_by(id=int(cat_id), user_id=current_user.id).first()
+                if cat:
+                    item.category_id = cat.id
+            except ValueError:
+                pass
 
         # Money / dates
         pp = _parse_money(form.get("purchase_price"))
@@ -173,7 +189,7 @@ def edit_item(item_id):
 
         lp = _parse_money(form.get("list_price"))
         if lp is None:
-            # If the user cleared it, set to server breakeven for safety
+            # If user cleared it, set to server breakeven for safety
             be = _breakeven(item.purchase_price or Decimal("0.00"))
             item.list_price = be
         else:
@@ -190,7 +206,7 @@ def edit_item(item_id):
         if sold_date is not None:
             item.sold_date = sold_date
 
-        # Photo upload (NEW)
+        # Photo upload
         if "photo" in request.files and request.files["photo"].filename:
             rel_path = save_upload(request.files["photo"])
             if rel_path:
