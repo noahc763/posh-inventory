@@ -42,12 +42,12 @@
 
     <!-- Local styles for thumbnail + lightbox -->
     <style>
-      .item-title-wrap{display:flex;align-items:center;gap:10px;min-width:220px}
-      .item-thumb{width:48px;height:48px;flex:0 0 48px;border-radius:8px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea}
+      .item-thumb-cell{width:56px}
+      .item-thumb{width:48px;height:48px;border-radius:8px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea;margin:auto}
       .item-thumb img{
         display:block;width:100%;height:100%;object-fit:cover;
-        transform:none !important;              /* cancel accidental rotation */
-        image-orientation: from-image;          /* respect EXIF */
+        transform:none !important;
+        image-orientation: from-image;
         cursor:pointer;
       }
       .item-title{font-weight:600;color:inherit;text-decoration:none}
@@ -61,12 +61,13 @@
     </style>
 
     <div class="table-wrap">
-      <table class="table">
+      <table class="table" style="min-width:900px">
         <thead>
           <tr>
             <th style="width:36px;text-align:center;">
               <input id="chkAll" type="checkbox" aria-label="Select all" />
             </th>
+            <th class="item-thumb-cell">Image</th>
             <th>Title</th>
             <th>Category</th>
             <th>Barcode</th>
@@ -79,7 +80,7 @@
         <tbody>
           {% if items|length == 0 %}
           <tr class="empty-row">
-            <td colspan="8">
+            <td colspan="9">
               No items yet. Use <em>+ Add item</em> to create your first one.
             </td>
           </tr>
@@ -90,38 +91,37 @@
               <input class="chkItem" type="checkbox" value="{{ it.id }}" aria-label="Select item {{ it.id }}" />
             </td>
 
-            <!-- TITLE CELL with thumbnail INSIDE -->
-            <td>
-              <div class="item-title-wrap">
-                {% set img_url = None %}
-                {% if it.photo_path %}
-                  {% set p = (it.photo_path|string).strip() %}
-                  {% if p.startswith('http://') or p.startswith('https://') %}
-                    {% set img_url = p %}
-                  {% elif p.startswith('/static/') %}
-                    {% set img_url = p %}
-                  {% else %}
-                    {% set img_url = url_for('static', filename=p.lstrip('/')) %}
-                  {% endif %}
+            <!-- IMAGE CELL (always present as its own column) -->
+            <td class="item-thumb-cell">
+              {% set img_url = None %}
+              {% if it.photo_path %}
+                {% set p = (it.photo_path|string).strip() %}
+                {% if p.startswith('http://') or p.startswith('https://') %}
+                  {% set img_url = p %}
+                {% elif p.startswith('/static/') %}
+                  {% set img_url = p %}
+                {% else %}
+                  {% set img_url = url_for('static', filename=p.lstrip('/')) %}
                 {% endif %}
+              {% endif %}
 
-                {% if img_url %}
-                  <div class="item-thumb">
-                    <img
-                      src="{{ img_url }}{% if it.updated_at %}?v={{ it.updated_at|int }}{% endif %}"
-                      alt="Photo of {{ it.title or it.name }}"
-                      loading="lazy"
-                      onclick="openImgModal(this.src)"
-                      onerror="this.closest('.item-thumb').remove();"
-                    >
-                  </div>
-                {% endif %}
-
-                <div>
-                  <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
-                  {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
+              {% if img_url %}
+                <div class="item-thumb">
+                  <img
+                    src="{{ img_url }}{% if it.updated_at %}?v={{ it.updated_at|int }}{% endif %}"
+                    alt="Photo of {{ it.title or it.name }}"
+                    loading="lazy"
+                    onclick="openImgModal(this.src)"
+                    onerror="this.closest('.item-thumb').remove();"
+                  >
                 </div>
-              </div>
+              {% endif %}
+            </td>
+
+            <!-- TITLE -->
+            <td>
+              <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
+              {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
             </td>
 
             <td>{{ it.category.name if it.category else "—" }}</td>

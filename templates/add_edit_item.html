@@ -1,205 +1,280 @@
 {% extends "base.html" %}
 {% block content %}
+{% set prefill = prefill or {} %}
+<section class="card" style="max-width: 760px; margin: 0 auto;">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+    <h2 style="margin:0;">
+      {% if read_only %}Item Details{% elif item %}Edit Item{% else %}New Item{% endif %}
+    </h2>
 
-<section class="card" style="max-width: 780px; margin: 0 auto;">
-  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-    <h2 style="margin:0;">{{ 'Edit Item' if item else 'New Item' }}</h2>
-    <a class="btn outline" href="{{ url_for('dashboard') }}">← Back</a>
+    {% if read_only and item %}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="btn" href="{{ url_for('items.edit_item', item_id=item.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('items.bulk_delete_items') }}"
+              onsubmit="return confirm('Delete this item permanently?');" style="display:inline">
+          <input type="hidden" name="ids" value="{{ item.id }}">
+          <button class="btn danger" type="submit">Delete</button>
+        </form>
+        <a class="btn outline" href="{{ url_for('dashboard') }}">Back</a>
+      </div>
+    {% endif %}
   </div>
 
   <div class="card-body">
-    <form
-      method="post"
-      enctype="multipart/form-data"
-      action="{% if item %}{{ url_for('items.edit_item', item_id=item.id) }}{% else %}{{ url_for('items.add_item') }}{% endif %}"
-      class="form"
-      style="display:grid;grid-template-columns:1fr;gap:14px;"
-    >
-      <!-- Category -->
-      <label class="field">
-        <span>Category *</span>
-        <select name="category_id" required class="input">
-          <option value="" disabled {% if not item and not prefill.category_id %}selected{% endif %}>— Select —</option>
-          {% for c in categories %}
-            <option value="{{ c.id }}"
-              {% if item and item.category_id == c.id %}selected{% elif not item and prefill.category_id and (prefill.category_id|string) == (c.id|string) %}selected{% endif %}>
-              {{ c.name }}
-            </option>
-          {% endfor %}
-        </select>
-      </label>
 
-      <!-- Title -->
-      <label class="field">
-        <span>Title *</span>
-        <input class="input" name="title" required
-               value="{{ item.title if item else '' }}"
-               placeholder="e.g., Nike Air Max 270">
-      </label>
+    {% if read_only and item %}
+      {# ================= READ-ONLY DETAIL ================= #}
+      <style>
+        .detail-grid{display:grid;grid-template-columns: 160px 1fr; gap:14px; align-items:start}
+        .detail-photo{width:160px;height:160px;border-radius:10px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea}
+        .detail-photo img{width:100%;height:100%;object-fit:cover;image-orientation:from-image}
+        .detail-row{display:grid;grid-template-columns:180px 1fr;gap:10px}
+        .detail-label{color:#475569}
+      </style>
 
-      <!-- Barcode -->
-      <label class="field">
-        <span>Barcode (UPC/EAN)</span>
-        <input class="input" name="barcode"
-               value="{% if item %}{{ item.barcode or '' }}{% else %}{{ prefill.barcode or '' }}{% endif %}"
-               placeholder="Scan or type">
-      </label>
+      <div class="detail-grid">
+        <div>
+          {% if item.photo_path %}
+            {% set p = item.photo_path | trim %}
+            {% set img_url = p %}
+            {% if p and not (p.startswith('http://') or p.startswith('https://')) %}
+              {% if p.startswith('/static/') %}
+                {% set img_url = p %}
+              {% else %}
+                {% set rel = p.lstrip('/') %}
+                {% set img_url = url_for('static', filename=rel) %}
+              {% endif %}
+            {% endif %}
+            <div class="detail-photo">
+              <img src="{{ img_url }}" alt="Photo of {{ item.title or item.name }}">
+            </div>
+          {% endif %}
+        </div>
 
-      <!-- Money (Purchase / List / Sold) -->
-      <div class="grid-2">
-        <label class="field">
-          <span>Purchase Price *</span>
-          <input id="purchase_price" class="input" name="purchase_price" type="number" step="0.01" min="0" required
-                 value="{{ ('%.2f'|format(item.purchase_price)) if item and item.purchase_price is not none else '' }}"
-                 placeholder="0.00">
-        </label>
-
-        <label class="field">
-          <span>List Price</span>
-          <input id="list_price" class="input" name="list_price" type="number" step="0.01" min="0"
-                 value="{{ ('%.2f'|format(item.list_price)) if item and item.list_price is not none else '' }}"
-                 placeholder="0.00">
-          <div class="small muted">If left empty, we'll auto-fill with the Breakeven Price.</div>
-        </label>
+        <div style="display:grid;gap:10px;">
+          <div class="detail-row">
+            <div class="detail-label">Title</div><div>{{ item.title }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Category</div><div>{{ item.category.name if item.category else '—' }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Barcode</div><div>{{ item.barcode or '—' }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Purchase Price</div>
+            <div>{% if item.purchase_price is not none %}${{ '%.2f'|format(item.purchase_price) }}{% else %}—{% endif %}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">List Price</div>
+            <div>{% if item.list_price is not none %}${{ '%.2f'|format(item.list_price) }}{% else %}—{% endif %}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Sold Price</div>
+            <div>{% if item.sold_price is not none %}${{ '%.2f'|format(item.sold_price) }}{% else %}—{% endif %}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Sold Date</div>
+            <div>{{ item.sold_date.strftime('%Y-%m-%d') if item.sold_date else '—' }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Purchase Date</div>
+            <div>{{ item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else '—' }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Purchase Source</div>
+            <div>{{ item.purchase_source or '—' }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Notes</div>
+            <div>{{ item.notes or '—' }}</div>
+          </div>
+        </div>
       </div>
 
-      <div class="grid-2">
+    {% else %}
+      {# ================= ADD / EDIT FORM ================= #}
+      <form
+        method="post"
+        enctype="multipart/form-data"
+        action="{% if item %}{{ url_for('items.edit_item', item_id=item.id) }}{% else %}{{ url_for('items.add_item') }}{% endif %}"
+        class="form"
+        style="display:grid;gap:14px;"
+      >
+
+        <!-- Category -->
         <label class="field">
-          <span>Sold Price</span>
-          <input id="sold_price" class="input" name="sold_price" type="number" step="0.01" min="0"
-                 value="{{ ('%.2f'|format(item.sold_price)) if item and item.sold_price is not none else '' }}"
-                 placeholder="0.00">
+          <span>Category *</span>
+          <select id="category_id" name="category_id" required>
+            <option value="" disabled {% if not item and not prefill.category_id %}selected{% endif %}>— Select —</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}"
+                {% if item and item.category_id == c.id %}selected{% elif prefill.category_id and prefill.category_id|string == c.id|string %}selected{% endif %}>
+                {{ c.name }}
+              </option>
+            {% endfor %}
+          </select>
         </label>
 
+        <!-- Title -->
         <label class="field">
-          <span>Sold Date</span>
-          <input class="input" name="sold_date" type="date"
-                 value="{{ item.sold_date.strftime('%Y-%m-%d') if item and item.sold_date }}"/>
-        </label>
-      </div>
-
-      <!-- Auto-calculated helpers -->
-      <div class="grid-2">
-        <label class="field">
-          <span>Estimated Platform Fee (auto)</span>
-          <input id="fee" class="input" name="platform_fee" type="number" step="0.01" min="0" placeholder="0.00" readonly>
+          <span>Title *</span>
+          <input name="title" value="{{ item.title if item else '' }}" placeholder="e.g., Nike Air Max 270" required />
         </label>
 
+        <!-- Barcode -->
         <label class="field">
-          <span>Estimated Profit (auto)</span>
-          <input id="profit" class="input" type="number" step="0.01" placeholder="0.00" readonly>
-        </label>
-      </div>
-
-      <label class="field">
-        <span>Breakeven Price (auto)</span>
-        <input id="breakeven_price" class="input" type="number" step="0.01" placeholder="0.00" readonly>
-        <span class="small muted">Lowest list price that covers purchase + Poshmark fee ($2.95 under $15, else 20%).</span>
-      </label>
-
-      <!-- Dates / Source -->
-      <div class="grid-2">
-        <label class="field">
-          <span>Purchase Date</span>
-          <input class="input" name="purchase_date" type="date"
-                 value="{{ item.purchase_date.strftime('%Y-%m-%d') if item and item.purchase_date }}"/>
+          <span>Barcode (UPC/EAN)</span>
+          <input name="barcode" value="{% if item %}{{ item.barcode or '' }}{% else %}{{ prefill.barcode or '' }}{% endif %}" placeholder="Scan or type" />
         </label>
 
+        <!-- Prices -->
+        <div class="grid-2">
+          <label class="field">
+            <span>Purchase price *</span>
+            <input id="purchase_price" name="purchase_price" type="number" step="0.01" min="0"
+                   inputmode="decimal" autocomplete="off"
+                   value="{{ '%.2f'|format(item.purchase_price) if item and item.purchase_price is not none }}"
+                   placeholder="0.00" required />
+          </label>
+
+          <label class="field">
+            <span>List price</span>
+            <input id="list_price" name="list_price" type="number" step="0.01" min="0"
+                   inputmode="decimal" autocomplete="off"
+                   value="{{ '%.2f'|format(item.list_price) if item and item.list_price is not none }}"
+                   placeholder="0.00" />
+            <span class="small muted">Auto-fills with breakeven; you can change it.</span>
+          </label>
+        </div>
+
+        <!-- Live fee & profit (based on current List price) -->
+        <div class="grid-2">
+          <label class="field">
+            <span>Estimated Poshmark fee (auto)</span>
+            <input id="fee" type="number" step="0.01" min="0" placeholder="0.00" readonly />
+          </label>
+
+          <label class="field">
+            <span>Estimated profit (auto)</span>
+            <input id="profit" type="number" step="0.01" placeholder="0.00" readonly />
+          </label>
+        </div>
+
+        <!-- Optional sold fields -->
+        <div class="grid-2">
+          <label class="field">
+            <span>Sold price</span>
+            <input id="sold_price" name="sold_price" type="number" step="0.01" min="0"
+                   inputmode="decimal" autocomplete="off"
+                   value="{{ '%.2f'|format(item.sold_price) if item and item.sold_price is not none }}"
+                   placeholder="0.00" />
+            <span class="small muted" id="soldProfitHint"></span>
+          </label>
+
+          <label class="field">
+            <span>Sold date</span>
+            <input name="sold_date" type="date"
+                   value="{{ item.sold_date.strftime('%Y-%m-%d') if item and item.sold_date }}" />
+          </label>
+        </div>
+
+        <!-- Dates / Source -->
+        <div class="grid-2">
+          <label class="field">
+            <span>Purchase date</span>
+            <input name="purchase_date" type="date"
+                   value="{{ item.purchase_date.strftime('%Y-%m-%d') if item and item.purchase_date }}" />
+          </label>
+
+          <label class="field">
+            <span>Purchase source</span>
+            <input name="purchase_source" value="{{ item.purchase_source if item else '' }}" placeholder="e.g., Thrift store" />
+          </label>
+        </div>
+
+        <!-- Notes -->
         <label class="field">
-          <span>Purchase Source</span>
-          <input class="input" name="purchase_source"
-                 value="{{ item.purchase_source if item and item.purchase_source else '' }}"
-                 placeholder="e.g., Thrift store, consignment, etc.">
+          <span>Notes</span>
+          <textarea name="notes" rows="3" placeholder="Details, flaws, etc.">{{ item.notes if item else '' }}</textarea>
         </label>
-      </div>
 
-      <!-- Notes -->
-      <label class="field">
-        <span>Notes</span>
-        <textarea class="input" name="notes" rows="3" placeholder="Details, flaws, etc.">{{ item.notes if item and item.notes else '' }}</textarea>
-      </label>
+        <!-- Photo -->
+        <label class="field">
+          <span>Photo</span>
+          <input name="photo" type="file" accept="image/*" />
+          {% if item and item.photo_path %}
+            <div class="small muted" style="margin-top:6px;">Current: {{ item.photo_path }}</div>
+          {% endif %}
+        </label>
 
-      <!-- Photo -->
-      <label class="field">
-        <span>Photo</span>
-        <input class="input" name="photo" type="file" accept="image/*">
-        {% if item and item.photo_path %}
-          <div class="small muted" style="margin-top:6px;">Current photo: {{ item.photo_path }}</div>
-        {% endif %}
-      </label>
-
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button class="btn" type="submit">{{ 'Save Changes' if item else 'Save Item' }}</button>
-        <a class="btn outline" href="{{ url_for('dashboard') }}" role="button">Cancel</a>
-      </div>
-    </form>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn" type="submit">Save Item</button>
+          <a class="btn outline" href="{{ url_for('dashboard') }}" role="button">Cancel</a>
+        </div>
+      </form>
+    {% endif %}
   </div>
 </section>
 
+{% if not read_only %}
 <script>
-(function(){
-  const $ = (id) => document.getElementById(id);
-
-  const purchaseEl = $('purchase_price');
-  const listEl     = $('list_price');    // IMPORTANT: list_price (not listing_price)
-  const soldEl     = $('sold_price');
-  const feeEl      = $('fee');
-  const profitEl   = $('profit');
-  const breakEl    = $('breakeven_price');
-
-  function numOf(el){
-    if (!el) return 0;
-    const v = parseFloat(String(el.value || '').replace(/[^\d.]/g,''));
+  // ------- Helpers -------
+  function asNum(el){
+    const v = parseFloat((el?.value || '').replace(/[^\d.]/g,''));
     return isNaN(v) ? 0 : v;
   }
   function ceil2(x){ return Math.ceil(x * 100) / 100; }
-
   // Poshmark fee: $2.95 if price < $15, else 20%
-  function poshFee(price){
-    if (price <= 0) return 0;
-    return price < 15 ? 2.95 : price * 0.20;
-  }
-
-  // Breakeven based on purchase price only (matches server)
+  function poshFee(price){ if (price <= 0) return 0; return price < 15 ? 2.95 : price * 0.20; }
+  // Breakeven (min list so that list - fee(list) - purchase >= 0)
   function breakeven(purchase){
     if (purchase <= 0) return 0;
-    const flatCandidate = purchase + 2.95;
-    if (flatCandidate < 15) return ceil2(flatCandidate);
-    const percentCandidate = purchase / 0.8;
-    return ceil2(Math.max(15, percentCandidate));
+    const flat = purchase + 2.95;
+    if (flat < 15) return ceil2(flat);
+    const percent = Math.max(15, purchase / 0.8);
+    return ceil2(percent);
   }
 
+  const purchaseEl = document.getElementById('purchase_price');
+  const listEl     = document.getElementById('list_price');
+  const feeEl      = document.getElementById('fee');
+  const profitEl   = document.getElementById('profit');
+  const soldEl     = document.getElementById('sold_price');
+  const soldHint   = document.getElementById('soldProfitHint');
+
+  let userEditedList = false;
+  listEl?.addEventListener('input', () => { userEditedList = true; recalc(); });
+
   function recalc(){
-    const purchase = numOf(purchaseEl);
-    const list     = numOf(listEl);
-    const sold     = numOf(soldEl);
+    const purchase = asNum(purchaseEl);
+    const list     = asNum(listEl);
 
-    // If a sold price exists, compute fee/profit from SOLD; else from LIST.
-    const basis  = sold > 0 ? sold : list;
-    const fee    = poshFee(basis);
-    const profit = basis > 0 ? (basis - fee - purchase) : 0;
+    if (!userEditedList && (!list || list === 0) && purchase > 0) {
+      const be = breakeven(purchase);
+      listEl.value = be ? be.toFixed(2) : '';
+    }
 
-    if (feeEl)    feeEl.value    = basis > 0 ? fee.toFixed(2) : '';
-    if (profitEl) profitEl.value = basis > 0 ? profit.toFixed(2) : '';
+    const curList = asNum(listEl);
+    const fee  = poshFee(curList);
+    feeEl.value    = curList ? fee.toFixed(2) : '';
+    const profit = curList ? (curList - fee - purchase) : 0;
+    profitEl.value = curList ? profit.toFixed(2) : '';
 
-    // Breakeven only depends on purchase price
-    if (breakEl)  breakEl.value  = purchase > 0 ? breakeven(purchase).toFixed(2) : '';
-
-    // If list price is empty, auto-fill with breakeven (client-side)
-    if (listEl && !listEl.value && purchase > 0) {
-      listEl.value = breakeven(purchase).toFixed(2);
+    const sold = asNum(soldEl);
+    if (sold > 0) {
+      const soldFee = poshFee(sold);
+      const realized = sold - soldFee - purchase;
+      soldHint.textContent = `Estimated realized profit at Sold price: $${realized.toFixed(2)}`;
+    } else {
+      soldHint.textContent = '';
     }
   }
 
-  ['input','change'].forEach(ev => {
-    purchaseEl?.addEventListener(ev, recalc);
-    listEl?.addEventListener(ev, recalc);
-    soldEl?.addEventListener(ev, recalc);
-  });
-
-  // Initial calculation after page loads
+  purchaseEl?.addEventListener('input', () => { if (!userEditedList) listEl.value=''; recalc(); });
+  listEl?.addEventListener('input', recalc);
+  soldEl?.addEventListener('input', recalc);
   window.addEventListener('DOMContentLoaded', recalc);
-})();
 </script>
-
+{% endif %}
 {% endblock %}

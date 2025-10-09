@@ -90,6 +90,7 @@ def create_app():
     @login_required
     def item_detail(item_id: int):
         item = Item.query.filter_by(id=item_id, user_id=current_user.id).first_or_404()
+        cats = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
         return render_template("item_detail.html", item=item, Decimal=Decimal)
 
     # Scanner page

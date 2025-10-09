@@ -75,7 +75,8 @@ def add_item():
             "add_edit_item.html",
             item=None,
             categories=_user_categories(),
-            prefill=prefill
+            prefill=prefill,
+            read_only=False
         )
 
     # POST create
@@ -87,7 +88,7 @@ def add_item():
             "add_edit_item.html",
             item=None,
             categories=_user_categories(),
-            prefill={"barcode": f.get("barcode","")}
+            prefill={"barcode": f.get("barcode","")}, read_only=False
         )
 
     # Optional category
@@ -224,7 +225,7 @@ def edit_item(item_id):
         return redirect(url_for("item_detail", item_id=item.id))
 
     # GET: render edit form
-    return render_template("add_edit_item.html", item=item, categories=_user_categories())
+    return render_template("add_edit_item.html", item=item, categories=_user_categories(), read_only=False, prefill={})
 
 
 @items_bp.post("/items/<int:item_id>/delete")
