@@ -42,26 +42,36 @@
 
     <!-- Local styles for thumbnail + lightbox -->
     <style>
+      /* Thumbs + title */
       .item-thumb-cell{width:56px}
-      .item-thumb{width:48px;height:48px;border-radius:8px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea;margin:auto}
+      .item-thumb{
+        width:48px;height:48px;border-radius:8px;overflow:hidden;
+        background:#eef2f7;border:1px solid #d9e0ea;margin:auto
+      }
       .item-thumb img{
         display:block;width:100%;height:100%;object-fit:cover;
-        transform:none !important;
-        image-orientation: from-image;
+        transform:none !important; image-orientation:from-image;
         cursor:pointer;
       }
       .item-title{font-weight:600;color:inherit;text-decoration:none}
       .item-title:hover{text-decoration:underline}
 
+      /* Table responsiveness */
+      .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+      .table{min-width:1000px}
+
+      /* Lightbox modal */
       .img-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.9)}
       .img-modal.open{display:block}
-      .img-modal__close{position:absolute;top:16px;right:20px;color:#fff;font-size:34px;font-weight:700;cursor:pointer;line-height:1;}
+      .img-modal__close{
+        position:absolute;top:16px;right:20px;color:#fff;font-size:34px;font-weight:700;cursor:pointer;line-height:1;
+      }
       .img-modal__body{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:24px}
       .img-modal__img{max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
     </style>
 
     <div class="table-wrap">
-      <table class="table" style="min-width:900px">
+      <table class="table">
         <thead>
           <tr>
             <th style="width:36px;text-align:center;">
@@ -91,24 +101,30 @@
               <input class="chkItem" type="checkbox" value="{{ it.id }}" aria-label="Select item {{ it.id }}" />
             </td>
 
-            <!-- IMAGE CELL (always present as its own column) -->
+            <!-- IMAGE CELL -->
             <td class="item-thumb-cell">
-              {% set img_url = None %}
+              {% set img_url = none %}
               {% if it.photo_path %}
-                {% set p = (it.photo_path|string).strip() %}
-                {% if p.startswith('http://') or p.startswith('https://') %}
+                {% set p = (it.photo_path|string)|trim %}
+                {% set p_lower = p|lower %}
+                {% if p_lower[:7] == 'http://' or p_lower[:8] == 'https://' %}
                   {% set img_url = p %}
-                {% elif p.startswith('/static/') %}
+                {% elif p[:8] == '/static/' %}
                   {% set img_url = p %}
                 {% else %}
-                  {% set img_url = url_for('static', filename=p.lstrip('/')) %}
+                  {# remove a single leading slash if present #}
+                  {% set rel = p %}
+                  {% if rel and rel[0] == '/' %}
+                    {% set rel = rel[1:] %}
+                  {% endif %}
+                  {% set img_url = url_for('static', filename=rel) %}
                 {% endif %}
               {% endif %}
 
               {% if img_url %}
                 <div class="item-thumb">
                   <img
-                    src="{{ img_url }}{% if it.updated_at %}?v={{ it.updated_at|int }}{% endif %}"
+                    src="{{ img_url }}"
                     alt="Photo of {{ it.title or it.name }}"
                     loading="lazy"
                     onclick="openImgModal(this.src)"
@@ -152,6 +168,7 @@
               <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
               <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
 
+              <!-- Per-row delete (posts to bulk_delete with single id) -->
               <form method="post"
                     action="{{ url_for('items.bulk_delete_items') }}"
                     style="display:inline"

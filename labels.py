@@ -88,16 +88,28 @@ def _barcode_png_data_url(code: str, dpi: int = 300, write_text: bool = True) ->
 
 def _labels_for_items(items: List[Item], dpi: int) -> List[dict]:
     """
-    Build label payloads; one dict per label. We embed only the PNG (with digits rendered).
+    Build label payloads; one dict per label.
+    We embed the PNG (with digits rendered by python-barcode) and add list_price text.
     """
     out: List[dict] = []
     for it in items:
         code = (it.barcode or "").strip()
         if not code:
             continue
-        img = _barcode_png_data_url(code, dpi=dpi, write_text=False)
-        out.append({"barcode": code, "img": img})
+
+        img = _barcode_png_data_url(code, dpi=dpi, write_text=True)
+
+        # format list price as $X.XX (or blank if None)
+        lp = it.list_price
+        price_str = f"${lp:.2f}" if lp is not None else ""
+
+        out.append({
+            "barcode": code,
+            "img": img,
+            "price": price_str,   # <-- add this
+        })
     return out
+
 
 @labels_bp.route("/labels/print")
 @login_required
