@@ -90,8 +90,17 @@ def create_app():
     @login_required
     def item_detail(item_id: int):
         item = Item.query.filter_by(id=item_id, user_id=current_user.id).first_or_404()
+        # If your add_edit_item.html shows selects even in read-only,
+        # pass categories; otherwise you can omit it.
         cats = Category.query.filter_by(user_id=current_user.id).order_by(Category.name.asc()).all()
-        return render_template("item_detail.html", item=item, Decimal=Decimal)
+        return render_template(
+            "add_edit_item.html",
+            item=item,
+            categories=cats,
+            read_only=True,
+            prefill={}
+        )
+
 
     # Scanner page
     @app.route("/scan")

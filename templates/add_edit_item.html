@@ -204,9 +204,18 @@
           <span>Photo</span>
           <input name="photo" type="file" accept="image/*" />
           {% if item and item.photo_path %}
-            <div class="small muted" style="margin-top:6px;">Current: {{ item.photo_path }}</div>
+            {% set p = (item.photo_path or '')|trim %}
+            {% if p.startswith('http://') or p.startswith('https://') %}
+              {% set img_url = p %}
+            {% else %}
+              {% set img_url = url_for('static', filename=p.lstrip('/')) %}
+            {% endif %}
+            <div style="margin-top:8px;">
+              <img src="{{ img_url }}" alt="Current photo" style="max-width:140px;border-radius:8px;">
+            </div>
           {% endif %}
         </label>
+        
 
         <div style="display:flex; gap:8px; margin-top:8px;">
           <button class="btn" type="submit">Save Item</button>
