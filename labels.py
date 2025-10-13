@@ -39,7 +39,7 @@ def _render_barcode(sym: str, payload: str, *, dpi: int, write_text: bool, modul
         "quiet_zone": 2.0,             # mm left/right padding
         "font_size": 10,               # human-readable text size
         "text_distance": 1.2,          # mm gap between bars and digits (helps avoid overlap)
-        "write_text": bool(write_text),
+        "write_text": False,
         "dpi": int(dpi),
         "background": "white",
         "foreground": "black",
