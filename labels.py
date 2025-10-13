@@ -34,7 +34,7 @@ def _render_barcode(sym: str, payload: str, *, dpi: int, write_text: bool, modul
     """
     writer = ImageWriter()
     options = {
-        "module_width": 0.26  # mm per narrow bar; tweak to fill width at your DPI
+        "module_width": 0.26,  # mm per narrow bar; tweak to fill width at your DPI
         "module_height": 16.5,         # mm bar height (area above digits)
         "quiet_zone": 2.5,             # mm left/right padding
         "font_size": 10,               # human-readable text size
