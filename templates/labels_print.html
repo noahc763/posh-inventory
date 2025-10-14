@@ -13,112 +13,55 @@
       --margin:  {{ margin|default('0mm') }};
       --cols:    {{ cols|default(1) }};
     }
+    body{ margin:0; font: 12pt/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 
-    /* Screen toolbar (hidden in print) */
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    .toolbar{
-      position: sticky; top:0; z-index: 10;
-      display:flex; align-items:center; gap:10px;
-      padding:10px 12px; background:#fff; border-bottom:1px solid #eee;
-    }
-    .btn{ padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#f7f7f7; cursor:pointer; }
-    .info{ color:#555; font-size: 0.9rem; }
-
-    /* Page area */
     .sheet{
-      margin: 12px auto;
-      width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
-      padding: var(--margin);
-      box-sizing: content-box;
-      background: #fff;
+      margin:0 auto;
+      width:calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols)-1)) + (var(--margin)*2));
+      padding:var(--margin);
     }
-
     .grid{
-      display: grid;
-      grid-template-columns: repeat(var(--cols), var(--label-w));
-      grid-auto-rows: var(--label-h);
-      gap: var(--gap);
+      display:grid;
+      grid-template-columns:repeat(var(--cols), var(--label-w));
+      grid-auto-rows:var(--label-h);
+      gap:var(--gap);
     }
-
     .label{
-      width: var(--label-w);
-      height: var(--label-h);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      page-break-inside: avoid;
-      /* visible borders on screen help with alignment; removed in print */
-      border: 1px dashed #ddd;
-      box-sizing: border-box;
-      padding: 0;
-      margin: 0;
+      width:var(--label-w);height:var(--label-h);
+      display:grid;grid-template-rows:auto 1fr auto;
+      align-items:stretch;justify-items:stretch;
+      overflow:hidden;page-break-inside:avoid;
     }
-
-    /* Price above the barcode; scales with label height */
     .price{
-      font-weight: 700;
-      margin-bottom: 1mm;
-      white-space: nowrap;
-      /* scale between 8–14pt depending on label size */
-      font-size: clamp(8pt, calc(var(--label-h) * 0.22), 14pt);
+      text-align:center;font-weight:700;font-size:11pt;
+      padding:1mm 1mm 0.5mm;line-height:1.1;
     }
-
-    .imgwrap{
-      flex: 1;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .imgwrap img{
-      width: 100%;
-      height: 100%;
-      object-fit: contain; /* fill the label while preserving aspect */
-      display: block;
-    }
-
-    @media print{
-      @page { size: auto; margin: 0; }
-      body { margin: 0; }
-      .toolbar { display: none; }
-      .label { border: none; }
-      .sheet { margin: 0 auto; }
-    }
+    .imgwrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+    .imgwrap img{width:100%;height:100%;object-fit:contain;display:block;}
+    .code{text-align:center;font-size:9pt;letter-spacing:0.5px;padding:0.6mm 1mm 1mm;}
+    @media print{ @page{size:auto;margin:0;} body,.sheet{margin:0;} .toolbar{display:none!important;} }
+    .toolbar{position:sticky;top:0;display:flex;gap:10px;align-items:center;padding:10px;background:#fff;border-bottom:1px solid #eee;}
+    .btn{padding:8px 12px;border:1px solid #ccc;border-radius:8px;background:#f7f7f7;cursor:pointer;}
   </style>
 </head>
 <body>
 
-  <div class="toolbar">
-    <button class="btn" onclick="window.print()">🖨️ Print</button>
-    <div class="info">
-      {{ cols|default(1) }} column{{ 1 if (cols|default(1)) == 1 else 's' }},
-      {{ label_w|default('40mm') }} × {{ label_h|default('30mm') }},
-      DPI: {{ dpi|default(300) }}
-    </div>
-  </div>
+<div class="toolbar">
+  <button class="btn" onclick="window.print()">🖨️ Print</button>
+  <div>{{ cols|default(1) }} col — {{ label_w|default('40mm') }} × {{ label_h|default('30mm') }} — {{ dpi|default(300) }} DPI</div>
+</div>
 
-  <div class="sheet">
-    <div class="grid">
-      {% for lab in labels %}
-        <div class="label">
-          {% if lab.price %}
-            <div class="price">{{ lab.price }}</div>
-          {% endif %}
-          <div class="imgwrap">
-            <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
-          </div>
-          {# Do NOT render the code again here; the digits are already in the PNG.
-             If you ever need a second line, add it back below as plain text:
-             <div class="code">{{ lab.barcode }}</div>
-           #}
-        </div>
-      {% endfor %}
-    </div>
+<div class="sheet">
+  <div class="grid">
+    {% for lab in labels %}
+      <div class="label">
+        <div class="price">{{ lab.price or '' }}</div>
+        <div class="imgwrap"><img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}"></div>
+        <div class="code">{{ lab.human }}</div>
+      </div>
+    {% endfor %}
   </div>
+</div>
 
 </body>
 </html>
