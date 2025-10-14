@@ -13,12 +13,13 @@
       --margin:  {{ margin|default('0mm') }};
       --cols:    {{ cols|default(1) }};
     }
-    body{ margin:0; font: 12pt/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body{ margin:0; font: 12pt/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#000; }
 
     .sheet{
       margin:0 auto;
       width:calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols)-1)) + (var(--margin)*2));
       padding:var(--margin);
+      box-sizing:content-box;
     }
     .grid{
       display:grid;
@@ -31,16 +32,55 @@
       display:grid;grid-template-rows:auto 1fr auto;
       align-items:stretch;justify-items:stretch;
       overflow:hidden;page-break-inside:avoid;
+      /* Screen aid: outline so you can see bounds; disappears on print */
+      border:1px dashed #ddd;
+    }
+
+    /* ✅ Make sure text is visible and above the image */
+    .price, .code{
+      color:#000;
+      position:relative;
+      z-index:2;           /* on top of the image */
+      background:transparent;
+      text-align:center;
+      white-space:nowrap;
+      pointer-events:none; /* clicks go through while previewing */
     }
     .price{
-      text-align:center;font-weight:700;font-size:11pt;
-      padding:1mm 1mm 0.5mm;line-height:1.1;
+      font-weight:700;
+      font-size:11pt;
+      padding:1mm 1mm 0.5mm;
+      line-height:1.1;
     }
-    .imgwrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
-    .imgwrap img{width:100%;height:100%;object-fit:contain;display:block;}
-    .code{text-align:center;font-size:9pt;letter-spacing:0.5px;padding:0.6mm 1mm 1mm;}
-    @media print{ @page{size:auto;margin:0;} body,.sheet{margin:0;} .toolbar{display:none!important;} }
-    .toolbar{position:sticky;top:0;display:flex;gap:10px;align-items:center;padding:10px;background:#fff;border-bottom:1px solid #eee;}
+    .code{
+      font-size:9pt;
+      letter-spacing:0.5px;
+      padding:0.6mm 1mm 1mm;
+      line-height:1.1;
+    }
+
+    .imgwrap{
+      width:100%;height:100%;
+      display:flex;align-items:center;justify-content:center;
+      position:relative; z-index:1;   /* below text */
+    }
+    .imgwrap img{
+      width:100%;height:100%;
+      object-fit:contain;
+      display:block;
+    }
+
+    @media print{
+      @page{ size:auto; margin:0; }
+      body,.sheet{ margin:0; }
+      .toolbar{ display:none!important; }
+      .label{ border:none; } /* remove dashed aid on print */
+    }
+
+    .toolbar{
+      position:sticky;top:0;display:flex;gap:10px;align-items:center;
+      padding:10px;background:#fff;border-bottom:1px solid #eee;z-index:3;
+    }
     .btn{padding:8px 12px;border:1px solid #ccc;border-radius:8px;background:#f7f7f7;cursor:pointer;}
   </style>
 </head>
@@ -56,7 +96,9 @@
     {% for lab in labels %}
       <div class="label">
         <div class="price">{{ lab.price or '' }}</div>
-        <div class="imgwrap"><img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}"></div>
+        <div class="imgwrap">
+          <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
+        </div>
         <div class="code">{{ lab.human }}</div>
       </div>
     {% endfor %}

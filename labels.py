@@ -166,12 +166,15 @@ def labels_print():
         except Exception:
             return default_mm
 
+    # sizes & params (unchanged helpers above)
     dpi = int(request.args.get("dpi") or 300)
     cols = int(request.args.get("cols") or 1)
     copies = max(1, int(request.args.get("copies") or 1))
     label_w_mm = _len_mm(request.args.get("label_w"), 40.0)
     label_h_mm = _len_mm(request.args.get("label_h"), 30.0)
-    show_price = (request.args.get("price") == "1")
+
+    # ✅ Show price by default; pass ?price=0 to hide
+    show_price = (request.args.get("price", "1") != "0")
 
     labels = _labels_for_items(items, dpi, label_w_mm, label_h_mm, show_price)
     labels = [lab for lab in labels for _ in range(copies)]
