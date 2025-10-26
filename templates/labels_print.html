@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Barcode Labels</title>
+  <title>Text Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
@@ -13,93 +13,102 @@
       --margin:  {{ margin|default('0mm') }};
       --cols:    {{ cols|default(1) }};
     }
-    body{ margin:0; font: 12pt/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#000; }
 
+    /* Base */
+    html, body { margin:0; padding:0; background:#fff; color:#000; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+
+    /* Optional toolbar for screen preview */
+    .toolbar{
+      position: sticky; top: 0; z-index: 3;
+      display:flex; gap:10px; align-items:center;
+      padding:10px; background:#fff; border-bottom:1px solid #eee;
+    }
+    .btn{ padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#f7f7f7; cursor:pointer; }
+
+    /* Sheet + grid sized in real millimeters */
     .sheet{
-      margin:0 auto;
-      width:calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols)-1)) + (var(--margin)*2));
-      padding:var(--margin);
-      box-sizing:content-box;
+      margin: 0 auto;
+      width: calc((var(--label-w) * var(--cols)) + (var(--gap) * (var(--cols) - 1)) + (var(--margin) * 2));
+      padding: var(--margin);
+      box-sizing: content-box;
+      background: #fff;
     }
     .grid{
-      display:grid;
-      grid-template-columns:repeat(var(--cols), var(--label-w));
-      grid-auto-rows:var(--label-h);
-      gap:var(--gap);
+      display: grid;
+      grid-template-columns: repeat(var(--cols), var(--label-w));
+      grid-auto-rows: var(--label-h);
+      gap: var(--gap);
     }
+
+    /* Each label is a flex column that fills exactly 40×30mm (or your chosen size) */
     .label{
-      width:var(--label-w);height:var(--label-h);
-      display:grid;grid-template-rows:auto 1fr auto;
-      align-items:stretch;justify-items:stretch;
-      overflow:hidden;page-break-inside:avoid;
-      /* Screen aid: outline so you can see bounds; disappears on print */
-      border:1px dashed #ddd;
+      width: var(--label-w);
+      height: var(--label-h);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;  /* center content vertically */
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+      page-break-inside: avoid;
+      border: 1px dashed #ddd; /* screen aid; disappears on print */
     }
 
-    /* ✅ Make sure text is visible and above the image */
-    .price, .code{
-      color:#000;
-      position:relative;
-      z-index:2;           /* on top of the image */
-      background:transparent;
-      text-align:center;
-      white-space:nowrap;
-      pointer-events:none; /* clicks go through while previewing */
+    /* TEXT ONLY */
+    .num{
+      /* Big, bold number. Scale with label height; clamp to keep sane. */
+      font-weight: 800;
+      text-align: center;
+      line-height: 1;
+      padding: 0 2mm;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      /* Use the label height to drive sizing. 45% of height, clamped to 6–16mm. */
+      font-size: clamp(6mm, calc(var(--label-h) * 0.45), 16mm);
+      letter-spacing: 0.5px;
     }
+
     .price{
-      font-weight:700;
-      font-size:11pt;
-      padding:1mm 1mm 0.5mm;
-      line-height:1.1;
-    }
-    .code{
-      font-size:9pt;
-      letter-spacing:0.5px;
-      padding:0.6mm 1mm 1mm;
-      line-height:1.1;
+      /* Slightly smaller under the number */
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.05;
+      margin-top: 1mm;
+      white-space: nowrap;
+      font-size: clamp(3.2mm, calc(var(--label-h) * 0.22), 7mm);
+      letter-spacing: 0.2px;
     }
 
-    .imgwrap{
-      width:100%;height:100%;
-      display:flex;align-items:center;justify-content:center;
-      position:relative; z-index:1;   /* below text */
+    /* Print rules: remove borders/margins so the label fills the stock */
+    @media print {
+      @page { size: auto; margin: 0; }
+      body { margin: 0; }
+      .toolbar { display: none !important; }
+      .label { border: none; }
     }
-    .imgwrap img{
-      width:100%;height:100%;
-      object-fit:contain;
-      display:block;
-    }
-
-    @media print{
-      @page{ size:auto; margin:0; }
-      body,.sheet{ margin:0; }
-      .toolbar{ display:none!important; }
-      .label{ border:none; } /* remove dashed aid on print */
-    }
-
-    .toolbar{
-      position:sticky;top:0;display:flex;gap:10px;align-items:center;
-      padding:10px;background:#fff;border-bottom:1px solid #eee;z-index:3;
-    }
-    .btn{padding:8px 12px;border:1px solid #ccc;border-radius:8px;background:#f7f7f7;cursor:pointer;}
   </style>
 </head>
 <body>
 
 <div class="toolbar">
   <button class="btn" onclick="window.print()">🖨️ Print</button>
-  <div>{{ cols|default(1) }} col — {{ label_w|default('40mm') }} × {{ label_h|default('30mm') }} — {{ dpi|default(300) }} DPI</div>
+  <div>
+    {{ cols|default(1) }} col{{ '' if (cols|default(1)) == 1 else 's' }}
+    — {{ label_w|default('40mm') }} × {{ label_h|default('30mm') }}
+  </div>
 </div>
 
 <div class="sheet">
   <div class="grid">
     {% for lab in labels %}
       <div class="label">
-        <div class="price">{{ lab.price or '' }}</div>
-        <div class="imgwrap">
-          <img src="{{ lab.img }}" alt="Barcode {{ lab.barcode }}">
-        </div>
-        <div class="code">{{ lab.human }}</div>
+        <div class="num">{{ lab.num }}</div>
+        {% if lab.price %}
+          <div class="price">{{ lab.price }}</div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>

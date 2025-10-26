@@ -1,143 +1,95 @@
-from io import BytesIO
-import base64
-from typing import List, Tuple
-
+# labels.py
+from typing import List
 from flask import Blueprint, request, render_template, abort
 from flask_login import login_required, current_user
+from decimal import Decimal, ROUND_CEILING
 
 from models import Item
-from barcode import get as bc_get
-from barcode.writer import ImageWriter
-from PIL import Image
-from decimal import Decimal
 
 labels_bp = Blueprint("labels", __name__)
 
-def _mm_to_px(mm: float, dpi: int) -> int:
-    return int(round(mm * dpi / 25.4))
+# ---------------- helpers ----------------
 
-def _normalize_code(code: str) -> str:
-    return "".join(ch for ch in (code or "").strip() if ch.isalnum())
-
-def _choose_symbology(code: str) -> Tuple[str, str]:
-    s = _normalize_code(code)
-    if s.isdigit() and len(s) == 12:
-        return ("upc", s)
-    if s.isdigit() and len(s) == 13:
-        return ("ean13", s)
-    return ("code128", s)
-
-def _render_barcode_png(sym: str, code: str, options: dict) -> bytes:
-    bio = BytesIO()
-    bc = bc_get(sym, code, writer=ImageWriter())
-    bc.write(bio, options=options)
-    return bio.getvalue()
-
-def _barcode_png_data_url(
-    code: str,
-    label_w_mm: float,
-    label_h_mm: float,
-    dpi: int = 300,
-    reserve_top_mm: float = 0.0,
-    reserve_bottom_mm: float = 3.5,
-) -> str:
+def _len_mm(s: str | None, default_mm: float) -> float:
     """
-    Render a barcode to fill label space.
-    No digits baked in (write_text=False).
-    Digits shown separately in HTML.
+    Parse a CSS length like '40mm' or '30mm' -> float millimeters.
+    Falls back to default_mm if missing/invalid.
     """
-    sym, normalized = _choose_symbology(code)
-
-    target_w_px = _mm_to_px(label_w_mm, dpi)
-    avail_h_mm = max(0.0, label_h_mm - reserve_top_mm - reserve_bottom_mm)
-    target_h_px = _mm_to_px(avail_h_mm, dpi)
-
-    best_png, best_area = None, -1
-    lo, hi = 0.12, 0.40
-
-    for _ in range(18):
-        mw = (lo + hi) / 2.0
-        options = {
-            "module_width": mw,
-            "module_height": 18.0,
-            "quiet_zone": 2.0,
-            "write_text": False,  # no text inside image
-            "dpi": dpi,
-            "background": "white",
-            "foreground": "black",
-        }
-
+    if not s:
+        return default_mm
+    s = s.strip().lower()
+    if s.endswith("mm"):
         try:
-            png = _render_barcode_png(sym, normalized, options)
+            return float(s[:-2])
         except Exception:
-            try:
-                png = _render_barcode_png("code128", normalized, options)
-                sym = "code128"
-            except Exception:
-                break
+            return default_mm
+    try:
+        # allow passing raw number meaning mm
+        return float(s)
+    except Exception:
+        return default_mm
 
-        try:
-            w, h = Image.open(BytesIO(png)).size
-        except Exception:
-            break
 
-        fits = (w <= target_w_px) and (h <= target_h_px)
-        area = w * h
-        if fits and area > best_area:
-            best_area, best_png = area, png
-            lo = mw
-        else:
-            hi = mw
+def _round_up_cents(value: Decimal) -> Decimal:
+    """Round UP to 2 decimals."""
+    cents = (value * Decimal("100")).to_integral_value(rounding=ROUND_CEILING)
+    return cents / Decimal("100")
 
-    if best_png is None:
-        options = {
-            "module_width": 0.26,
-            "module_height": 18.0,
-            "quiet_zone": 2.0,
-            "write_text": False,
-            "dpi": dpi,
-            "background": "white",
-            "foreground": "black",
-        }
-        best_png = _render_barcode_png(sym, normalized, options)
 
-    b64 = base64.b64encode(best_png).decode("ascii")
-    return f"data:image/png;base64,{b64}"
+def _breakeven(purchase_price: Decimal | None) -> Decimal | None:
+    """
+    Poshmark fee:
+      - $2.95 if list < $15
+      - 20% if list >= $15
+    Find minimum list L so that L - fee(L) - purchase >= 0.
+    """
+    if purchase_price is None or purchase_price <= 0:
+        return None
 
-def _labels_for_items(items: List[Item], dpi: int, label_w_mm: float, label_h_mm: float, show_price: bool) -> List[dict]:
-    out = []
-    reserve_top_mm = 3.5 if show_price else 0.0
-    reserve_bottom_mm = 3.5
+    flat = purchase_price + Decimal("2.95")
+    if flat < Decimal("15.00"):
+        return _round_up_cents(flat)
 
+    # 20% regime
+    percent = purchase_price / Decimal("0.8")
+    if percent < Decimal("15.00"):
+        percent = Decimal("15.00")
+    return _round_up_cents(percent)
+
+
+def _labels_for_items_text(items: List[Item]) -> List[dict]:
+    """
+    Build a list of dicts for text-only labels:
+      - num: the prominent number to print (barcode if present, else item id)
+      - price: break-even price like '$12.34' (or '' if not computable)
+    """
+    out: List[dict] = []
     for it in items:
-        code = (it.barcode or "").strip()
-        if not code:
-            continue
+        # Choose the number to show: prefer barcode, fallback to item id.
+        num = (it.barcode or "").strip() or str(it.id)
 
-        img = _barcode_png_data_url(
-            code,
-            label_w_mm,
-            label_h_mm,
-            dpi,
-            reserve_top_mm,
-            reserve_bottom_mm,
-        )
+        be = _breakeven(it.purchase_price) if it.purchase_price is not None else None
+        price = f"${be:.2f}" if be is not None else ""
 
-        price_str = None
-        if show_price and it.list_price is not None:
-            price_str = f"${float(it.list_price):.2f}"
-
-        out.append({
-            "barcode": code,
-            "human": code,
-            "img": img,
-            "price": price_str,
-        })
+        out.append({"num": num, "price": price})
     return out
+
+# ---------------- route ----------------
 
 @labels_bp.route("/labels/print")
 @login_required
 def labels_print():
+    """
+    Text-only labels for 40×30 mm (customizable).
+    Query params:
+      ids       = comma-separated item IDs (required)
+      cols      = columns across (default 1)
+      copies    = copies per item (default 1)
+      label_w   = label width, e.g., '40mm' (default 40mm)
+      label_h   = label height, e.g., '30mm' (default 30mm)
+      margin    = page margin around sheet/grid (default 0mm)
+      gap       = gap between labels (default 0mm)
+    """
     ids_raw = (request.args.get("ids") or "").strip()
     if not ids_raw:
         abort(400, "Missing ids")
@@ -155,29 +107,23 @@ def labels_print():
     if not items:
         abort(404, "No items found")
 
-    def _len_mm(s: str | None, default_mm: float) -> float:
-        if not s:
-            return default_mm
-        s = s.strip().lower()
-        try:
-            if s.endswith("mm"): return float(s[:-2])
-            if s.endswith("in") or s.endswith('"'): return float(s.rstrip('"').rstrip("in")) * 25.4
-            return float(s)
-        except Exception:
-            return default_mm
+    # layout params
+    try:
+        cols = int(request.args.get("cols") or 1)
+    except Exception:
+        cols = 1
+    try:
+        copies = max(1, int(request.args.get("copies") or 1))
+    except Exception:
+        copies = 1
 
-    # sizes & params (unchanged helpers above)
-    dpi = int(request.args.get("dpi") or 300)
-    cols = int(request.args.get("cols") or 1)
-    copies = max(1, int(request.args.get("copies") or 1))
     label_w_mm = _len_mm(request.args.get("label_w"), 40.0)
     label_h_mm = _len_mm(request.args.get("label_h"), 30.0)
+    margin = request.args.get("margin") or "0mm"
+    gap = request.args.get("gap") or "0mm"
 
-    # ✅ Show price by default; pass ?price=0 to hide
-    show_price = (request.args.get("price", "1") != "0")
-
-    labels = _labels_for_items(items, dpi, label_w_mm, label_h_mm, show_price)
-    labels = [lab for lab in labels for _ in range(copies)]
+    labels = _labels_for_items_text(items)
+    labels = [lab for lab in labels for _ in range(copies)]  # replicate copies
 
     return render_template(
         "labels_print.html",
@@ -185,7 +131,6 @@ def labels_print():
         cols=cols,
         label_w=f"{label_w_mm:.2f}mm",
         label_h=f"{label_h_mm:.2f}mm",
-        gap="0mm",
-        margin="0mm",
-        dpi=dpi,
+        gap=gap,
+        margin=margin,
     )
