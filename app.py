@@ -20,11 +20,8 @@ def create_app():
         template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"),
         static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
     )
-    app.config.from_object(Config)
-
-    # make sure static/uploads exists
-    os.makedirs(os.path.join(app.static_folder, app.config["UPLOAD_DIR"]), exist_ok=True)
-
+    app.config["UPLOAD_FOLDER"] = os.path.join(app.static_folder, "uploads")
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
     # --- DB init ---
     db.init_app(app)
@@ -66,6 +63,30 @@ def create_app():
             return datetime.strptime(v, "%Y-%m-%d").date() if v else None
         except Exception:
             return None
+
+    from flask import url_for
+
+    @app.context_processor
+    def template_helpers():
+        def media_url(p: str | None):
+            """
+            Normalize DB paths like:
+            - 'uploads/foo.jpg'        -> /static/uploads/foo.jpg
+            - '/uploads/foo.jpg'       -> /static/uploads/foo.jpg
+            - '/static/uploads/foo.jpg' (already public) -> (as-is)
+            - 'http(s)://...'          -> (as-is)
+            """
+            if not p:
+                return None
+            p = str(p).strip()
+            if p.startswith("http://") or p.startswith("https://"):
+                return p
+            if p.startswith("/static/"):
+                return p
+            # common case: stored as 'uploads/...' or '/uploads/...'
+            return url_for("static", filename=p.lstrip("/"))
+        return {"media_url": media_url}
+
 
     # --- Routes ---
 

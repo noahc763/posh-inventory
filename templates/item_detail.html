@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    <h2 style="margin:0;">Item Details</h2>
+    <div style="display:flex;gap:8px;">
+      <a class="btn" href="{{ url_for('items.edit_item', item_id=item.id) }}">Edit</a>
+      <form method="post" action="{{ url_for('items.bulk_delete_items') }}" style="display:inline"
+            onsubmit="return confirm('Delete this item permanently?');">
+        <input type="hidden" name="ids" value="{{ item.id }}">
+        <button class="btn danger" type="submit">Delete</button>
+      </form>
+      <a class="btn outline" href="{{ url_for('dashboard') }}">Back</a>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <style>
+      .detail-grid{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:start}
+      .photo-box{
+        width:240px;height:240px;border-radius:12px;border:1px solid #e5e7eb;
+        background:#eef2f7;display:flex;align-items:center;justify-content:center;overflow:hidden
+      }
+      .photo-box img{
+        display:block;max-width:100%;max-height:100%;object-fit:cover;
+        image-orientation: from-image; transform:none !important; cursor:pointer;
+      }
+      .kv{display:grid;grid-template-columns:180px 1fr;gap:10px 16px}
+      .kv div.label{color:#475569}
+      .kv div.value{color:#0f172a}
+    </style>
+
+    <div class="detail-grid">
+      <div>
+        <div class="photo-box">
+          {% set src = media_url(item.photo_path) %}
+          {% if src %}
+            <img
+              src="{{ src }}{% if item.updated_at %}?v={{ item.updated_at|int }}{% endif %}"
+              alt="Photo of {{ item.title or item.name }}"
+              onclick="openImgModal(this.src)"
+              onerror="this.closest('.photo-box').innerHTML='<span class=&quot;muted small&quot;>Image not found</span>';"
+            >
+          {% else %}
+            <span class="muted small">No photo</span>
+          {% endif %}
+        </div>
+        <!-- Debug helper (remove later): shows the resolved URL in page source -->
+        <!-- Resolved image URL: {{ src or 'None' }} -->
+      </div>
+
+      <div class="kv">
+        <div class="label">Title</div><div class="value">{{ item.title or item.name }}</div>
+        <div class="label">Category</div><div class="value">{{ item.category.name if item.category else '—' }}</div>
+        <div class="label">Barcode</div><div class="value">{{ item.barcode or '—' }}</div>
+        <div class="label">Purchase Price</div><div class="value">{{ ('$%.2f'|format(item.purchase_price)) if item.purchase_price is not none else '—' }}</div>
+        <div class="label">List Price</div><div class="value">{{ ('$%.2f'|format(item.list_price)) if item.list_price is not none else '—' }}</div>
+        <div class="label">Sold Price</div><div class="value">{{ ('$%.2f'|format(item.sold_price)) if item.sold_price is not none else '—' }}</div>
+        <div class="label">Sold Date</div><div class="value">{{ item.sold_date or '—' }}</div>
+        <div class="label">Purchase Date</div><div class="value">{{ item.purchase_date or '—' }}</div>
+        <div class="label">Purchase Source</div><div class="value">{{ item.purchase_source or '—' }}</div>
+        <div class="label">Notes</div><div class="value">{{ item.notes or 'None' }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Reuse the same lightbox modal as dashboard if you have one; otherwise include: -->
+<div id="imgModal" class="img-modal" role="dialog" aria-modal="true" aria-label="Image preview" onclick="closeImgModal(event)" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.9)">
+  <span class="img-modal__close" aria-label="Close" onclick="closeImgModal(event)" style="position:absolute;top:16px;right:20px;color:#fff;font-size:34px;font-weight:700;cursor:pointer;line-height:1;">&times;</span>
+  <div class="img-modal__body" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:24px">
+    <img id="imgModalImg" alt="Preview" style="max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)">
+  </div>
+</div>
+
+<script>
+function openImgModal(src){
+  const m = document.getElementById('imgModal');
+  const img = document.getElementById('imgModalImg');
+  img.src = src;
+  m.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeImgModal(ev){
+  if (ev && ev.target && ev.target.id !== 'imgModal' && !ev.target.classList.contains('img-modal__close')) {
+    // allow closing only when backdrop or × is clicked
+  }
+  const m = document.getElementById('imgModal');
+  m.style.display = 'none';
+  document.getElementById('imgModalImg').src = '';
+  document.body.style.overflow = '';
+}
+</script>
+
+{% endblock %}

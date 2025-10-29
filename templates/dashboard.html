@@ -15,9 +15,9 @@
       </select>
       <button class="btn outline" type="submit">Filter</button>
 
-      <!-- Manual Add (no barcode) -->
+      <!-- Manual Add -->
       <div style="display:flex;gap:8px;align-items:center;">
-        <select id="manualAddCategory" class="input" aria-label="Choose category to add to" style="min-width:200px;">
+        <select id="manualAddCategory" class="input" aria-label="Choose category" style="min-width:200px;">
           <option value="" {% if not selected_cat %}selected{% endif %} disabled>Select category…</option>
           {% for c in categories %}
             <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
@@ -33,28 +33,21 @@
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:10px;">
       <button id="btnPrintSelected" class="btn outline" type="button">🖨️ Print selected labels</button>
 
-      <!-- Bulk Delete -->
       <form id="bulkDeleteForm" method="post" action="{{ url_for('items.bulk_delete_items') }}" style="display:inline">
         <input type="hidden" name="ids" id="bulkDeleteIds">
         <button class="btn danger" type="submit">🗑️ Delete selected</button>
       </form>
     </div>
 
-    <!-- Local styles -->
+    <!-- Styles -->
     <style>
-      /* force horizontal scroll on phones/small windows */
       .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
       .table{min-width:920px}
 
       .item-thumb-cell{width:56px}
-      .item-thumb{
-        width:48px;height:48px;border-radius:8px;overflow:hidden;
-        background:#eef2f7;border:1px solid #d9e0ea;margin:auto
-      }
-      .item-thumb img{
-        display:block;width:100%;height:100%;object-fit:cover;
-        transform:none !important; image-orientation: from-image; cursor:pointer;
-      }
+      .item-thumb{width:48px;height:48px;border-radius:8px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea;margin:auto}
+      .item-thumb img{display:block;width:100%;height:100%;object-fit:cover;cursor:pointer;transform:none !important;image-orientation:from-image}
+
       .item-title{font-weight:600;color:inherit;text-decoration:none}
       .item-title:hover{text-decoration:underline}
 
@@ -85,93 +78,64 @@
         </thead>
         <tbody>
           {% if items|length == 0 %}
-          <tr class="empty-row">
-            <td colspan="9">
-              No items yet. Use <em>+ Add item</em> to create your first one.
-            </td>
-          </tr>
+            <tr><td colspan="9" class="muted">No items yet. Use <em>+ Add item</em>.</td></tr>
           {% else %}
-          {% for it in items %}
-          <tr>
-            <td style="text-align:center;">
-              <input class="chkItem" type="checkbox" value="{{ it.id }}" aria-label="Select item {{ it.id }}" />
-            </td>
+            {% for it in items %}
+              <tr>
+                <td style="text-align:center;">
+                  <input class="chkItem" type="checkbox" value="{{ it.id }}" aria-label="Select item {{ it.id }}" />
+                </td>
 
-            <!-- IMAGE CELL -->
-            <td class="item-thumb-cell">
-              {% set img_url = None %}
-              {% if it.photo_path %}
-                {% set p = (it.photo_path|string).strip() %}
-                {% if p.startswith('http://') or p.startswith('https://') %}
-                  {% set img_url = p %}
-                {% elif p.startswith('/static/') %}
-                  {% set img_url = p %}
-                {% else %}
-                  {# assume 'uploads/...', relative to /static #}
-                  {% set img_url = url_for('static', filename=p.lstrip('/')) %}
-                {% endif %}
-              {% endif %}
+                <!-- IMAGE -->
+                <td class="item-thumb-cell">
+                  {% set img_url = None %}
+                  {% if it.photo_path %}
+                    {% set p = (it.photo_path|string).strip() %}
+                    {% if p.startswith('http://') or p.startswith('https://') %}
+                      {% set img_url = p %}
+                    {% elif p.startswith('uploads/') %}
+                      {% set img_url = url_for('static', filename=p) %}
+                    {% elif p.startswith('/static/uploads/') %}
+                      {% set img_url = p %}
+                    {% endif %}
+                  {% endif %}
 
-              {% if img_url %}
-                <div class="item-thumb">
-                  <img
-                    src="{{ img_url }}{% if it.updated_at %}?v={{ it.updated_at|int }}{% endif %}"
-                    alt="Photo of {{ it.title or it.name }}"
-                    decoding="async"
-                    loading="lazy"
-                    onclick="openImgModal(this.getAttribute('src'))"
-                    onerror="this.closest('.item-thumb').style.display='none';"
-                  >
-                </div>
-              {% else %}
-                <div class="muted small" style="text-align:center">No photo</div>
-              {% endif %}
-            </td>
+                  {% if img_url %}
+                    <div class="item-thumb">
+                      <img src="{{ img_url }}{% if it.updated_at %}?v={{ it.updated_at|int }}{% endif %}"
+                           alt="Photo of {{ it.title or it.name }}"
+                           onclick="openImgModal(this.src)"
+                           loading="lazy"
+                           decoding="async"
+                           onerror="this.closest('.item-thumb').style.display='none';">
+                    </div>
+                  {% else %}
+                    <div class="muted small" style="text-align:center">No photo</div>
+                  {% endif %}
+                </td>
 
-            <!-- TITLE -->
-            <td>
-              <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
-              {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
-            </td>
+                <!-- TITLE -->
+                <td>
+                  <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
+                </td>
 
-            <td>{{ it.category.name if it.category else "—" }}</td>
+                <td>{{ it.category.name if it.category else "—" }}</td>
+                <td>{% if it.barcode %}<code>{{ it.barcode }}</code>{% else %}<span class="muted">—</span>{% endif %}</td>
+                <td>{% if it.purchase_price is not none %}${{ '%.2f'|format(it.purchase_price) }}{% else %}—{% endif %}</td>
+                <td>{% if it.list_price is not none %}${{ '%.2f'|format(it.list_price) }}{% else %}—{% endif %}</td>
+                <td>{% if it.sold_price is not none %}${{ '%.2f'|format(it.sold_price) }}{% else %}—{% endif %}</td>
 
-            <td>
-              {% if it.barcode %}
-                <code>{{ it.barcode }}</code>
-              {% else %}
-                <span class="muted">—</span>
-              {% endif %}
-            </td>
-
-            <td>
-              {% if it.purchase_price is not none %}${{ '%.2f'|format(it.purchase_price) }}{% else %}—{% endif %}
-              {% if it.purchase_date %}<div class="muted small">{{ it.purchase_date }}</div>{% endif %}
-            </td>
-
-            <td>
-              {% if it.list_price is not none %}${{ '%.2f'|format(it.list_price) }}{% else %}—{% endif %}
-            </td>
-
-            <td>
-              {% if it.sold_price is not none %}${{ '%.2f'|format(it.sold_price) }}{% else %}—{% endif %}
-              {% if it.sold_date %}<div class="muted small">{{ it.sold_date }}</div>{% endif %}
-            </td>
-
-            <td style="padding:8px 10px;text-align:right;white-space:nowrap;">
-              <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
-              <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
-
-              <form method="post"
-                    action="{{ url_for('items.bulk_delete_items') }}"
-                    style="display:inline"
-                    onsubmit="return confirm('Delete this item permanently?');">
-                <input type="hidden" name="ids" value="{{ it.id }}">
-                <button class="btn danger" type="submit">Delete</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
+                <td style="padding:8px 10px;text-align:right;white-space:nowrap;">
+                  <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
+                  <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
+                  <form method="post" action="{{ url_for('items.bulk_delete_items') }}"
+                        style="display:inline" onsubmit="return confirm('Delete permanently?');">
+                    <input type="hidden" name="ids" value="{{ it.id }}">
+                    <button class="btn danger" type="submit">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
           {% endif %}
         </tbody>
       </table>
@@ -179,9 +143,9 @@
   </div>
 </section>
 
-<!-- Image lightbox modal -->
-<div id="imgModal" class="img-modal" role="dialog" aria-modal="true" aria-label="Image preview" onclick="closeImgModal(event)">
-  <span class="img-modal__close" aria-label="Close" onclick="closeImgModal(event)">&times;</span>
+<!-- Lightbox -->
+<div id="imgModal" class="img-modal" onclick="closeImgModal(event)">
+  <span class="img-modal__close" onclick="closeImgModal(event)">&times;</span>
   <div class="img-modal__body">
     <img id="imgModalImg" class="img-modal__img" alt="Preview">
   </div>
@@ -189,68 +153,51 @@
 
 <script>
 (function(){
-  const $  = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const $ = (s,r=document)=>r.querySelector(s);
+  const $$= (s,r=document)=>Array.from(r.querySelectorAll(s));
 
   // Manual Add
-  $('#manualAddBtn')?.addEventListener('click', () => {
-    const sel = $('#manualAddCategory');
-    const cat = sel?.value;
-    if (!cat) { alert('Pick a category first.'); return; }
+  $('#manualAddBtn')?.addEventListener('click',()=>{
+    const cat=$('#manualAddCategory')?.value;
+    if(!cat){alert('Pick a category first.');return;}
     window.location.assign(`/items/new?category_id=${encodeURIComponent(cat)}`);
   });
 
-  // Bulk select
-  const chkAll = $('#chkAll');
-  const chkItems = () => $$('.chkItem');
-  chkAll?.addEventListener('change', () => {
-    chkItems().forEach(cb => cb.checked = chkAll.checked);
+  // Select all
+  $('#chkAll')?.addEventListener('change',e=>{
+    $$('.chkItem').forEach(cb=>cb.checked=e.target.checked);
   });
 
-  // Print selected (labels page)
-  $('#btnPrintSelected')?.addEventListener('click', () => {
-    const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
-    if (!ids.length) {
-      alert('Select at least one item to print labels.');
-      return;
-    }
-    const url = `/labels/print?ids=${encodeURIComponent(ids.join(','))}&cols=1&dpi=203&copies=1`;
-    window.open(url, '_blank', 'noopener');
+  // Print selected
+  $('#btnPrintSelected')?.addEventListener('click',()=>{
+    const ids=$$('.chkItem').filter(cb=>cb.checked).map(cb=>cb.value);
+    if(!ids.length){alert('Select at least one item.');return;}
+    const url=`/labels/print?ids=${encodeURIComponent(ids.join(','))}&cols=1&dpi=203&copies=1`;
+    window.open(url,'_blank','noopener');
   });
 
-  // Bulk Delete: fill ids before submit
-  const bulkForm = $('#bulkDeleteForm');
-  bulkForm?.addEventListener('submit', (e) => {
-    const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
-    if (!ids.length) {
-      e.preventDefault();
-      alert('Select at least one item to delete.');
-      return;
-    }
-    if (!confirm(\`Delete \${ids.length} item(s) permanently? This cannot be undone.\`)) {
-      e.preventDefault();
-      return;
-    }
-    $('#bulkDeleteIds').value = ids.join(',');
+  // Bulk delete
+  $('#bulkDeleteForm')?.addEventListener('submit',e=>{
+    const ids=$$('.chkItem').filter(cb=>cb.checked).map(cb=>cb.value);
+    if(!ids.length){e.preventDefault();alert('Select items first.');return;}
+    if(!confirm(`Delete ${ids.length} item(s)? This cannot be undone.`)){e.preventDefault();}
+    $('#bulkDeleteIds').value=ids.join(',');
   });
 })();
 
-// Lightbox helpers
 function openImgModal(src){
-  var m = document.getElementById('imgModal');
-  var img = document.getElementById('imgModalImg');
-  img.src = src;                // use the exact src of the thumbnail (already normalized)
+  const m=document.getElementById('imgModal');
+  const img=document.getElementById('imgModalImg');
+  img.src=src;
   m.classList.add('open');
-  document.body.style.overflow = 'hidden';
+  document.body.style.overflow='hidden';
 }
 function closeImgModal(ev){
-  if (ev && ev.target && !ev.target.classList.contains('img-modal') && ev.target.id !== 'imgModal' && !ev.target.classList.contains('img-modal__close')) {
-    return;
-  }
-  var m = document.getElementById('imgModal');
+  if(ev && ev.target && !ev.target.closest('.img-modal__close') && ev.target.id!=='imgModal')return;
+  const m=document.getElementById('imgModal');
   m.classList.remove('open');
-  document.getElementById('imgModalImg').src = '';
-  document.body.style.overflow = '';
+  document.getElementById('imgModalImg').src='';
+  document.body.style.overflow='';
 }
 </script>
 
