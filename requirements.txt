@@ -4,9 +4,9 @@ Flask-SQLAlchemy
 flask-login
 psycopg[binary]
 python-dotenv
-Flask-Migrate
+Flask-Migrate>=4.0
 alembic
 psycopg2-binary
 python-barcode[images]
-Pillow
+Pillow>=10.0
 qrcode[pil]==7.4.2
