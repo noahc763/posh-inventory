@@ -6,21 +6,32 @@
     <h2 style="margin:0;">Dashboard</h2>
 
     <!-- Filters / actions -->
-    <form method="get" action="{{ url_for('dashboard') }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <form method="get"
+          action="{{ url_for('dashboard') }}"
+          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <select name="category" aria-label="Filter by category" class="input">
         <option value="">All categories</option>
         {% for c in categories %}
-          <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
+          <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>
+            {{ c.name }}
+          </option>
         {% endfor %}
       </select>
       <button class="btn outline" type="submit">Filter</button>
 
       <!-- Manual Add -->
       <div style="display:flex;gap:8px;align-items:center;">
-        <select id="manualAddCategory" class="input" style="min-width:200px;">
-          <option value="" {% if not selected_cat %}selected{% endif %} disabled>Select category…</option>
+        <select id="manualAddCategory"
+                class="input"
+                aria-label="Choose category to add to"
+                style="min-width:200px;">
+          <option value="" {% if not selected_cat %}selected{% endif %} disabled>
+            Select category…
+          </option>
           {% for c in categories %}
-            <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
+            <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>
+              {{ c.name }}
+            </option>
           {% endfor %}
         </select>
         <button class="btn" type="button" id="manualAddBtn">+ Add item</button>
@@ -32,32 +43,65 @@
     <!-- Bulk actions -->
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:10px;">
       <button id="btnPrintSelected" class="btn outline" type="button">🖨️ Print selected labels</button>
-      <form id="bulkDeleteForm" method="post" action="{{ url_for('items.bulk_delete_items') }}" style="display:inline">
+      <form id="bulkDeleteForm"
+            method="post"
+            action="{{ url_for('items.bulk_delete_items') }}"
+            style="display:inline">
         <input type="hidden" name="ids" id="bulkDeleteIds">
         <button class="btn danger" type="submit">🗑️ Delete selected</button>
       </form>
     </div>
 
+    <!-- Local styles -->
     <style>
       .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-      .table{min-width:920px}
+      .table{min-width:980px}
+
       .item-thumb-cell{width:56px}
-      .item-thumb{width:48px;height:48px;border-radius:8px;overflow:hidden;background:#eef2f7;border:1px solid #d9e0ea;margin:auto}
-      .item-thumb img{display:block;width:100%;height:100%;object-fit:cover;cursor:pointer}
-      .item-title{font-weight:600;color:inherit;text-decoration:none}
+      .item-thumb{
+        width:48px;height:48px;border-radius:8px;overflow:hidden;
+        background:#eef2f7;border:1px solid #d9e0ea;margin:auto;
+      }
+      .item-thumb img{
+        display:block;width:100%;height:100%;
+        object-fit:cover;
+        cursor:pointer;
+      }
+      .item-title{
+        font-weight:600;
+        color:inherit;
+        text-decoration:none;
+      }
       .item-title:hover{text-decoration:underline}
-      .img-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.9)}
+
+      /* lightbox */
+      .img-modal{
+        display:none;position:fixed;inset:0;z-index:9999;
+        background:rgba(0,0,0,.9);
+      }
       .img-modal.open{display:block}
-      .img-modal__close{position:absolute;top:16px;right:20px;color:#fff;font-size:34px;font-weight:700;cursor:pointer}
-      .img-modal__body{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:24px}
-      .img-modal__img{max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+      .img-modal__close{
+        position:absolute;top:16px;right:20px;
+        color:#fff;font-size:34px;font-weight:700;
+        cursor:pointer;line-height:1;
+      }
+      .img-modal__body{
+        display:flex;align-items:center;justify-content:center;
+        width:100%;height:100%;padding:24px;
+      }
+      .img-modal__img{
+        max-width:92vw;max-height:86vh;border-radius:12px;
+        box-shadow:0 10px 30px rgba(0,0,0,.35);
+      }
     </style>
 
     <div class="table-wrap">
       <table class="table">
         <thead>
           <tr>
-            <th style="width:36px;text-align:center;"><input id="chkAll" type="checkbox" /></th>
+            <th style="width:36px;text-align:center;">
+              <input id="chkAll" type="checkbox" aria-label="Select all" />
+            </th>
             <th class="item-thumb-cell">Image</th>
             <th>Title</th>
             <th>Category</th>
@@ -65,55 +109,130 @@
             <th>Purchase</th>
             <th>List</th>
             <th>Sold</th>
+            <th>Profit</th>
             <th class="right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% if items|length == 0 %}
-            <tr class="empty-row"><td colspan="9">No items yet. Use <em>+ Add item</em>.</td></tr>
+          <tr class="empty-row">
+            <td colspan="10">
+              No items yet. Use <em>+ Add item</em> to create your first one.
+            </td>
+          </tr>
           {% else %}
-            {% for it in items %}
-            <tr>
-              <td style="text-align:center;">
-                <input class="chkItem" type="checkbox" value="{{ it.id }}" />
-              </td>
-              <td class="item-thumb-cell">
-                {% if it.photo_path %}
-                  <div class="item-thumb">
-                    <img src="{{ media_url(it.photo_path) }}"
-                         alt="Photo of {{ it.title or it.name }}"
-                         onclick="openImgModal(this.src)"
-                         onerror="this.closest('.item-thumb').style.display='none';">
-                  </div>
+          {% for it in items %}
+          <tr>
+            <!-- Select -->
+            <td style="text-align:center;">
+              <input class="chkItem" type="checkbox" value="{{ it.id }}"
+                     aria-label="Select item {{ it.id }}" />
+            </td>
+
+            <!-- IMAGE CELL -->
+            <td class="item-thumb-cell">
+              {% if it.photo_path %}
+                <div class="item-thumb">
+                  <img
+                    src="{{ media_url(it.photo_path) }}"
+                    alt="Photo of {{ it.title or it.name }}"
+                    decoding="async"
+                    loading="lazy"
+                    onclick="openImgModal(this.src)"
+                    onerror="this.closest('.item-thumb').style.display='none';"
+                  >
+                </div>
+              {% else %}
+                <div class="muted small" style="text-align:center">No photo</div>
+              {% endif %}
+            </td>
+
+            <!-- TITLE -->
+            <td>
+              <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">
+                {{ it.title or it.name }}
+              </a>
+              {% if it.brand %}
+                <div class="muted small">{{ it.brand }}</div>
+              {% endif %}
+            </td>
+
+            <!-- Category -->
+            <td>{{ it.category.name if it.category else "—" }}</td>
+
+            <!-- Barcode -->
+            <td>
+              {% if it.barcode %}
+                <code>{{ it.barcode }}</code>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Purchase -->
+            <td>
+              {% if it.purchase_price is not none %}
+                ${{ '%.2f'|format(it.purchase_price) }}
+              {% else %}
+                —
+              {% endif %}
+              {% if it.purchase_date %}
+                <div class="muted small">{{ it.purchase_date }}</div>
+              {% endif %}
+            </td>
+
+            <!-- List -->
+            <td>
+              {% if it.list_price is not none %}
+                ${{ '%.2f'|format(it.list_price) }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <!-- Sold -->
+            <td>
+              {% if it.sold_price is not none %}
+                ${{ '%.2f'|format(it.sold_price) }}
+              {% else %}
+                —
+              {% endif %}
+              {% if it.sold_date %}
+                <div class="muted small">{{ it.sold_date }}</div>
+              {% endif %}
+            </td>
+
+            <!-- Profit (realized if sold_price, else estimated from list_price) -->
+            <td>
+              {% set price = it.sold_price if it.sold_price is not none else it.list_price %}
+              {% if price is not none and it.purchase_price is not none %}
+                {% if price < Decimal('15.00') %}
+                  {% set fee = Decimal('2.95') %}
                 {% else %}
-                  <div class="muted small" style="text-align:center">No photo</div>
+                  {% set fee = price * Decimal('0.20') %}
                 {% endif %}
-              </td>
-              <td>
-                <a class="item-title" href="{{ url_for('item_detail', item_id=it.id) }}">{{ it.title or it.name }}</a>
-                {% if it.brand %}<div class="muted small">{{ it.brand }}</div>{% endif %}
-              </td>
-              <td>{{ it.category.name if it.category else "—" }}</td>
-              <td>{% if it.barcode %}<code>{{ it.barcode }}</code>{% else %}<span class="muted">—</span>{% endif %}</td>
-              <td>
-                {% if it.purchase_price is not none %}${{ '%.2f'|format(it.purchase_price) }}{% else %}—{% endif %}
-                {% if it.purchase_date %}<div class="muted small">{{ it.purchase_date }}</div>{% endif %}
-              </td>
-              <td>{% if it.list_price is not none %}${{ '%.2f'|format(it.list_price) }}{% else %}—{% endif %}</td>
-              <td>
-                {% if it.sold_price is not none %}${{ '%.2f'|format(it.sold_price) }}{% else %}—{% endif %}
-                {% if it.sold_date %}<div class="muted small">{{ it.sold_date }}</div>{% endif %}
-              </td>
-              <td style="white-space:nowrap;text-align:right;">
-                <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
-                <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
-                <form method="post" action="{{ url_for('items.bulk_delete_items') }}" style="display:inline" onsubmit="return confirm('Delete permanently?');">
-                  <input type="hidden" name="ids" value="{{ it.id }}">
-                  <button class="btn danger" type="submit">Delete</button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
+                {% set profit = price - fee - it.purchase_price %}
+                ${{ '%.2f'|format(profit) }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td style="padding:8px 10px;text-align:right;white-space:nowrap;">
+              <a class="btn" href="{{ url_for('item_detail', item_id=it.id) }}">View</a>
+              <a class="btn" href="{{ url_for('items.edit_item', item_id=it.id) }}">Edit</a>
+
+              <form method="post"
+                    action="{{ url_for('items.bulk_delete_items') }}"
+                    style="display:inline"
+                    onsubmit="return confirm('Delete this item permanently?');">
+                <input type="hidden" name="ids" value="{{ it.id }}">
+                <button class="btn danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
           {% endif %}
         </tbody>
       </table>
@@ -121,36 +240,82 @@
   </div>
 </section>
 
-<!-- Lightbox -->
-<div id="imgModal" class="img-modal" onclick="closeImgModal(event)">
-  <span class="img-modal__close" onclick="closeImgModal(event)">&times;</span>
-  <div class="img-modal__body"><img id="imgModalImg" class="img-modal__img"></div>
+<!-- Image lightbox modal -->
+<div id="imgModal" class="img-modal" role="dialog" aria-modal="true" aria-label="Image preview" onclick="closeImgModal(event)">
+  <span class="img-modal__close" aria-label="Close" onclick="closeImgModal(event)">&times;</span>
+  <div class="img-modal__body">
+    <img id="imgModalImg" class="img-modal__img" alt="Preview">
+  </div>
 </div>
 
 <script>
 (function(){
-  const $ = (s, r=document)=>r.querySelector(s);
-  const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-  $('#manualAddBtn')?.addEventListener('click',()=>{
-    const sel=$('#manualAddCategory'); if(!sel.value){alert('Pick a category');return;}
-    window.location.assign(`/items/new?category_id=${encodeURIComponent(sel.value)}`);
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  // Manual Add
+  $('#manualAddBtn')?.addEventListener('click', () => {
+    const sel = $('#manualAddCategory');
+    const cat = sel?.value;
+    if (!cat) { alert('Pick a category first.'); return; }
+    window.location.assign('/items/new?category_id=' + encodeURIComponent(cat));
   });
-  const chkAll=$('#chkAll'), chkItems=()=>$$('.chkItem');
-  chkAll?.addEventListener('change',()=>chkItems().forEach(cb=>cb.checked=chkAll.checked));
-  $('#btnPrintSelected')?.addEventListener('click',()=>{
-    const ids=chkItems().filter(cb=>cb.checked).map(cb=>cb.value);
-    if(!ids.length){alert('Select at least one item');return;}
-    window.open(`/labels/print?ids=${ids.join(',')}&cols=1&dpi=203&copies=1`,'_blank','noopener');
+
+  // Bulk select
+  const chkAll = $('#chkAll');
+  const chkItems = () => $$('.chkItem');
+  chkAll?.addEventListener('change', () => {
+    chkItems().forEach(cb => cb.checked = chkAll.checked);
   });
-  $('#bulkDeleteForm')?.addEventListener('submit',e=>{
-    const ids=chkItems().filter(cb=>cb.checked).map(cb=>cb.value);
-    if(!ids.length){e.preventDefault();alert('Select at least one');return;}
-    if(!confirm(`Delete ${ids.length} items?`)){e.preventDefault();}
-    $('#bulkDeleteIds').value=ids.join(',');
+
+  // Print selected
+  $('#btnPrintSelected')?.addEventListener('click', () => {
+    const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
+    if (!ids.length) {
+      alert('Select at least one item to print labels.');
+      return;
+    }
+    const url = '/labels/print?ids=' + encodeURIComponent(ids.join(',')) + '&cols=1&dpi=203&copies=1';
+    window.open(url, '_blank', 'noopener');
+  });
+
+  // Bulk Delete: fill ids before submit
+  const bulkForm = $('#bulkDeleteForm');
+  bulkForm?.addEventListener('submit', (e) => {
+    const ids = chkItems().filter(cb => cb.checked).map(cb => cb.value);
+    if (!ids.length) {
+      e.preventDefault();
+      alert('Select at least one item to delete.');
+      return;
+    }
+    const msg = 'Delete ' + ids.length + ' item(s) permanently? This cannot be undone.';
+    if (!confirm(msg)) {
+      e.preventDefault();
+      return;
+    }
+    $('#bulkDeleteIds').value = ids.join(',');
   });
 })();
-function openImgModal(src){const m=document.getElementById('imgModal'),i=document.getElementById('imgModalImg');i.src=src;m.classList.add('open');document.body.style.overflow='hidden';}
-function closeImgModal(ev){const m=document.getElementById('imgModal');if(ev.target.id==='imgModalImg')return;m.classList.remove('open');document.getElementById('imgModalImg').src='';document.body.style.overflow='';}
+
+// Lightbox helpers
+function openImgModal(src){
+  var m = document.getElementById('imgModal');
+  var img = document.getElementById('imgModalImg');
+  img.src = src;
+  m.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeImgModal(ev){
+  if (ev && ev.target && !ev.target.classList.contains('img-modal') &&
+      ev.target.id !== 'imgModal' &&
+      !ev.target.classList.contains('img-modal__close')) {
+    return;
+  }
+  var m = document.getElementById('imgModal');
+  m.classList.remove('open');
+  document.getElementById('imgModalImg').src = '';
+  document.body.style.overflow = '';
+}
 </script>
 
 {% endblock %}
