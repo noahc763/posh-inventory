@@ -113,53 +113,50 @@ def create_app():
 
     # ---------- Routes ----------
 
-        @app.route("/")
-        @login_required
-        def dashboard():
-            cat_id = request.args.get("category", type=int)
+    @app.route("/")
+    def dashboard():
+        cat_id = request.args.get("category", type=int)
 
-            q = Item.query.filter_by(user_id=current_user.id)
-            if cat_id:
-                q = q.filter(Item.category_id == cat_id)
+        q = Item.query.filter_by(user_id=current_user.id)
+        if cat_id:
+            q = q.filter(Item.category_id == cat_id)
 
-            items = q.order_by(Item.created_at.desc()).all()
+        items = q.order_by(Item.created_at.desc()).all()
 
-            # 🔹 Compute estimated profit for *unsold* items
-            total_estimated_profit = Decimal("0.00")
+        total_estimated_profit = Decimal("0.00")
+        for item in items:
+            profit = getattr(item, "profit", None)
+            if profit is None:
+                continue
 
-            for item in items:
-                profit = getattr(item, "profit", None)
-                if profit is None:
+            # coerce to Decimal just in case
+            if not isinstance(profit, Decimal):
+                try:
+                    profit = Decimal(str(profit))
+                except Exception:
                     continue
 
-                # Try to coerce profit to Decimal if needed
-                if not isinstance(profit, Decimal):
-                    try:
-                        profit = Decimal(str(profit))
-                    except Exception:
-                        continue  # skip weird values
+            status = (getattr(item, "status", "") or "").lower()
+            is_sold = (status == "sold")
 
-                status = (getattr(item, "status", "") or "").lower()
-                is_sold = (status == "sold")
+            if not is_sold:
+                total_estimated_profit += profit
 
-                # Only count unsold items as "estimated profit"
-                if not is_sold:
-                    total_estimated_profit += profit
+        cats = (
+            Category.query.filter_by(user_id=current_user.id)
+            .order_by(Category.name.asc())
+            .all()
+        )
 
-            cats = (
-                Category.query.filter_by(user_id=current_user.id)
-                .order_by(Category.name.asc())
-                .all()
-            )
+        return render_template(
+            "dashboard.html",
+            items=items,
+            categories=cats,
+            selected_cat=cat_id,
+            Decimal=Decimal,
+            total_estimated_profit=total_estimated_profit,
+        )
 
-            return render_template(
-                "dashboard.html",
-                items=items,
-                categories=cats,
-                selected_cat=cat_id,
-                Decimal=Decimal,
-                total_estimated_profit=total_estimated_profit,
-            )
 
     @app.route("/ping")
     def ping():
