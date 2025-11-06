@@ -31,24 +31,6 @@
         </div>
       </div>
     </div>
-  </div>
-  
-
-
-    <div class="col-6 col-md-3">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="text-muted text-uppercase small mb-1">Total Realized Profit</div>
-          <div class="h5 mb-0">
-            {% if total_realized_profit is not none %}
-              ${{ '{:,.2f}'.format(total_realized_profit) }}
-            {% else %}—{% endif %}
-          </div>
-          <div class="small text-muted">Sold items</div>
-        </div>
-      </div>
-    </div>
-
     <!-- You can add more cards here (inventory count, avg profit, etc.) -->
   </div>
 
