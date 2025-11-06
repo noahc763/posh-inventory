@@ -76,13 +76,19 @@ def _labels_for_items_text(items: List[Item]) -> List[dict]:
 
 # ---------------- route ----------------
 
-@labels_bp.route("/labels/print")
+@labels_bp.route("/labels/print", methods=["GET", "POST"])
 @login_required
 def labels_print():
     """
     Text-only labels for 40×30 mm (customizable).
-    Query params:
-      ids       = comma-separated item IDs (required)
+
+    • If called via POST (from the dashboard form):
+        - expects checkboxes named `item_ids` in form data.
+
+    • If called via GET:
+        - expects query param `ids` = comma-separated item IDs, e.g. ?ids=1,2,3
+
+    Optional layout query params (both GET & POST):
       cols      = columns across (default 1)
       copies    = copies per item (default 1)
       label_w   = label width, e.g., '40mm' (default 40mm)
@@ -90,13 +96,31 @@ def labels_print():
       margin    = page margin around sheet/grid (default 0mm)
       gap       = gap between labels (default 0mm)
     """
-    ids_raw = (request.args.get("ids") or "").strip()
-    if not ids_raw:
-        abort(400, "Missing ids")
-    try:
-        ids = [int(x) for x in ids_raw.split(",") if x.strip()]
-    except Exception:
-        abort(400, "Invalid ids")
+
+    # --- 1) Figure out which item IDs to use ---
+
+    ids: list[int] = []
+
+    if request.method == "POST":
+        # Coming from the dashboard.html form: item_ids checkboxes
+        raw_ids = request.form.getlist("item_ids")
+        if not raw_ids:
+            abort(400, "No items selected")
+        try:
+            ids = [int(x) for x in raw_ids if x.strip()]
+        except Exception:
+            abort(400, "Invalid item_ids")
+    else:
+        # GET style: ?ids=1,2,3
+        ids_raw = (request.args.get("ids") or "").strip()
+        if not ids_raw:
+            abort(400, "Missing ids")
+        try:
+            ids = [int(x) for x in ids_raw.split(",") if x.strip()]
+        except Exception:
+            abort(400, "Invalid ids")
+
+    # --- 2) Fetch items for this user ---
 
     items = (
         Item.query
@@ -107,7 +131,8 @@ def labels_print():
     if not items:
         abort(404, "No items found")
 
-    # layout params
+    # --- 3) Layout params (from querystring, same as before) ---
+
     try:
         cols = int(request.args.get("cols") or 1)
     except Exception:
@@ -121,6 +146,8 @@ def labels_print():
     label_h_mm = _len_mm(request.args.get("label_h"), 30.0)
     margin = request.args.get("margin") or "0mm"
     gap = request.args.get("gap") or "0mm"
+
+    # --- 4) Build labels list, replicate by copies, and render ---
 
     labels = _labels_for_items_text(items)
     labels = [lab for lab in labels for _ in range(copies)]  # replicate copies
