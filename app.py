@@ -117,21 +117,44 @@ def create_app():
     @login_required
     def dashboard():
         cat_id = request.args.get("category", type=int)
+
         q = Item.query.filter_by(user_id=current_user.id)
         if cat_id:
             q = q.filter(Item.category_id == cat_id)
+
         items = q.order_by(Item.created_at.desc()).all()
+
+        # 🔹 NEW: compute estimated profit for unsold items
+        total_estimated_profit = Decimal("0.00")
+        for item in items:
+            # Skip if no profit value
+            if getattr(item, "profit", None) is None:
+                continue
+
+            # Adjust this condition to match how you mark items as sold.
+            # Example 1: if you have a Boolean field `sold`
+            if hasattr(item, "sold"):
+                if not item.sold:  # only count unsold items
+                    total_estimated_profit += item.profit
+
+            # Example 2: if you use a status string like "sold" / "listed"
+            elif hasattr(item, "status"):
+                if (item.status or "").lower() != "sold":
+                    total_estimated_profit += item.profit
+
         cats = (
             Category.query.filter_by(user_id=current_user.id)
             .order_by(Category.name.asc())
             .all()
         )
+
         return render_template(
             "dashboard.html",
             items=items,
             categories=cats,
             selected_cat=cat_id,
             Decimal=Decimal,
+            total_estimated_profit=total_estimated_profit,  # 🔹 NEW
         )
 
     @app.route("/items/<int:item_id>")
