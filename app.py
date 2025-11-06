@@ -161,6 +161,9 @@ def create_app():
                 total_estimated_profit=total_estimated_profit,
             )
 
+    @app.route("/ping")
+    def ping():
+        return "pong", 200
 
     @app.route("/items/<int:item_id>")
     @login_required
