@@ -114,9 +114,11 @@ def create_app():
     # ---------- Routes ----------
 
     @app.route("/")
+    @login_required
     def dashboard():
         cat_id = request.args.get("category", type=int)
 
+        # current_user is guaranteed to be a real user here
         q = Item.query.filter_by(user_id=current_user.id)
         if cat_id:
             q = q.filter(Item.category_id == cat_id)
@@ -156,11 +158,6 @@ def create_app():
             Decimal=Decimal,
             total_estimated_profit=total_estimated_profit,
         )
-
-
-    @app.route("/ping")
-    def ping():
-        return "pong", 200
 
     @app.route("/items/<int:item_id>")
     @login_required
