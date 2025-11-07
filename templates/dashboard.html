@@ -107,16 +107,21 @@
 
                 <!-- list/sold price -->
                 <td class="text-end small">
-                  {% if item.price is not none %}
+                  {% if item.price is defined and item.price is not none %}
                     ${{ '{:,.2f}'.format(item.price) }}
+                  {% elif item.list_price is defined and item.list_price is not none %}
+                    ${{ '{:,.2f}'.format(item.list_price) }}
+                  {% elif item.sold_price is defined and item.sold_price is not none %}
+                    ${{ '{:,.2f}'.format(item.sold_price) }}
                   {% else %}
                     —
                   {% endif %}
                 </td>
 
+
                 <!-- PROFIT -->
                 <td class="text-end">
-                  {% if item.profit is not none %}
+                  {% if item.profit is defined and item.profit is not none %}
                     {% if item.profit >= 0 %}
                       <span class="text-success">
                         ${{ '{:,.2f}'.format(item.profit) }}
@@ -130,6 +135,7 @@
                     <span class="text-muted small">N/A</span>
                   {% endif %}
                 </td>
+
 
                 <!-- status -->
                 <td>
