@@ -3,18 +3,45 @@
 {% block content %}
 <div class="container-fluid py-3">
 
-  <!-- Header + actions -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-    <h1 class="h3 mb-0">Inventory Dashboard</h1>
-    <div class="d-flex gap-2">
-      <a href="{{ url_for('items.add_item') }}" class="btn btn-primary btn-sm">
-        + Add Item
-      </a>
-      <button form="labels-form" type="submit" class="btn btn-outline-secondary btn-sm">
-        Print Selected Labels
-      </button>
+    <!-- Header + actions + category filter -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <h1 class="h3 mb-0">Inventory Dashboard</h1>
+  
+        <!-- Category filter -->
+        <form method="get" class="d-flex align-items-center gap-2">
+          <label for="category-filter" class="small text-muted mb-0">Category:</label>
+          <select
+            id="category-filter"
+            name="category"
+            class="form-select form-select-sm"
+            onchange="this.form.submit()"
+          >
+            <option value="">All</option>
+            {% for cat in categories %}
+              <option value="{{ cat.id }}"
+                {% if selected_cat == cat.id %}selected{% endif %}>
+                {{ cat.name }}
+              </option>
+            {% endfor %}
+          </select>
+          <noscript>
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
+          </noscript>
+        </form>
+      </div>
+  
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('items.add_item') }}" class="btn btn-primary btn-sm">
+          + Add Item
+        </a>
+        <button form="labels-form" type="submit" class="btn btn-outline-secondary btn-sm">
+          Print Selected Labels
+        </button>
+      </div>
     </div>
-  </div>
+  
 
   <!-- Profit summary card -->
   <div class="row g-3 mb-3">
@@ -47,12 +74,11 @@
                 </th>
                 <th scope="col">Photo</th>
                 <th scope="col">Title</th>
+                <th scope="col">Barcode</th>
                 <th scope="col">Category</th>
                 <th scope="col" class="text-end">Purchase</th>
                 <th scope="col" class="text-end">Price</th>
                 <th scope="col" class="text-end">Profit</th>
-                <th scope="col">Status</th>
-                <th scope="col">Updated</th>
                 <th scope="col" class="text-end">Actions</th>
               </tr>
             </thead>
@@ -100,6 +126,15 @@
                   {% endif %}
                 </td>
 
+                <!-- barcode -->
+                <td class="small text-muted">
+                  {% if item.barcode is defined and item.barcode %}
+                    {{ item.barcode }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+
                 <!-- category -->
                 <td class="small text-muted">
                   {{ item.category.name if item.category else '' }}
@@ -143,15 +178,6 @@
                   {% else %}
                     <span class="text-muted small">N/A</span>
                   {% endif %}
-                </td>
-
-
-                <!-- status -->
-                <td>
-                  {% set is_sold = (item.status|lower == 'sold') %}
-                  <span class="badge bg-{{ 'success' if is_sold else 'secondary' }}">
-                    {{ item.status|capitalize }}
-                  </span>
                 </td>
 
                 <!-- last updated -->
