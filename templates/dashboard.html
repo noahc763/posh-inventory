@@ -66,10 +66,18 @@
 
                 <!-- thumbnail -->
                 <td style="width: 80px;">
-                  {% if item.photo_filename %}
-                    <a href="{{ media_url(item.photo_filename) }}" target="_blank">
+                  {# Prefer photo_path; fallback to photo_filename if it exists #}
+                  {% set photo = None %}
+                  {% if item.photo_path is defined and item.photo_path %}
+                    {% set photo = item.photo_path %}
+                  {% elif item.photo_filename is defined and item.photo_filename %}
+                    {% set photo = item.photo_filename %}
+                  {% endif %}
+
+                  {% if photo %}
+                    <a href="{{ media_url(photo) }}" target="_blank">
                       <img
-                        src="{{ media_url(item.photo_filename) }}"
+                        src="{{ media_url(photo) }}"
                         alt="Item photo"
                         class="img-thumbnail"
                         style="width:64px;height:64px;object-fit:cover;"
@@ -79,6 +87,7 @@
                     <span class="text-muted small">No photo</span>
                   {% endif %}
                 </td>
+
 
                 <!-- title / details -->
                 <td>
