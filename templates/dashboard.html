@@ -180,15 +180,6 @@
                   {% endif %}
                 </td>
 
-                <!-- last updated -->
-                <td class="small text-muted">
-                  {% if item.updated_at %}
-                    {{ item.updated_at.strftime('%Y-%m-%d') }}
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-
                 <!-- actions -->
                 <td class="text-end">
                   <a href="{{ url_for('items.edit_item', item_id=item.id) }}"

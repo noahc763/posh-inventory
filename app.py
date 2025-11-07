@@ -28,6 +28,36 @@ def _normalize_database_url(url: str | None) -> str | None:
         return "postgresql+psycopg2://" + url.removeprefix("postgres://")
     return url
 
+def generate_next_barcode(user_id: int) -> str:
+    """
+    Find the largest numeric barcode for this user and return the next one
+    Ignores non-numeric or empty barcodes
+    """
+    #Get just the barcodes for this user
+    rows = (
+        Item.query
+        .with_entities(Item.barcode)
+        .filter(Item.user_id == user_id, Item.barcode.isnot(None))
+        .all()
+    )
+
+    max_num = 0
+    for (code,) in rows:
+        if not code:
+            continue
+        s = "".join(ch for ch in str(code) if ch.isdigit())
+        if not s:
+            continue
+        try:
+            n = int(s)
+        except Exception:
+            continue
+        if n > max_num:
+            max_num = n
+
+    # If nothing found, start at 1
+    next_num = max_num + 1
+    return str(next_num)
 
 def create_app():
     # Load .env for local dev (no-op in prod)
@@ -292,6 +322,10 @@ def create_app():
                 if existing:
                     flash("Item with this barcode already exists; opening it.", "info")
                     return redirect(url_for("item_detail", item_id=existing.id))
+
+            #Auto-generate barcode if none was provided
+            if not raw_barcode:
+                raw_barcode = generate_next_barcode(current_user.id)
 
             # Create the item
             item = Item(
